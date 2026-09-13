@@ -1,0 +1,265 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+}
+
+:root {
+  color-scheme: light;
+  /* NexusDesk Light Mode - Crisp Professional Shell with Cyan/Violet accents */
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #0891b2; /* Cyan accent for Light Mode */
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --accent: #7c3aed; /* Violet accent */
+  --accent-foreground: #ffffff;
+  --destructive: #e11d48;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #0891b2;
+  --radius: 0.65rem;
+
+  /* Quantum Glow & Glassmorphism Light Tokens */
+  --nexus-glass-bg: rgba(255, 255, 255, 0.85);
+  --nexus-glass-border: rgba(8, 145, 178, 0.22);
+  --nexus-active-glow: 0 0 16px rgba(8, 145, 178, 0.18);
+  --nexus-sidebar-bg: #ffffff;
+  --nexus-sidebar-border: #e2e8f0;
+  --nexus-card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+}
+
+.dark {
+  color-scheme: dark;
+  /* NexusDesk Dark Mode - Slate-950 / Zinc-950 with Neon Glows */
+  --background: #030712; /* Slate-950 / Zinc-950 */
+  --foreground: #f8fafc;
+  --card: rgba(15, 23, 42, 0.65);
+  --card-foreground: #f8fafc;
+  --popover: #0b0f19;
+  --popover-foreground: #f8fafc;
+  --primary: #06b6d4; /* Neon Cyan Primary */
+  --primary-foreground: #030712;
+  --secondary: #1e293b;
+  --secondary-foreground: #f8fafc;
+  --muted: #0f172a;
+  --muted-foreground: #94a3b8;
+  --accent: #8b5cf6; /* Neon Violet Accent */
+  --accent-foreground: #ffffff;
+  --destructive: #f43f5e;
+  --border: rgba(6, 182, 212, 0.18);
+  --input: #1e293b;
+  --ring: #06b6d4;
+
+  /* Quantum Glow & Glassmorphism Dark Tokens */
+  --nexus-glass-bg: rgba(11, 15, 25, 0.72);
+  --nexus-glass-border: rgba(6, 182, 212, 0.22);
+  --nexus-active-glow: 0 0 22px rgba(6, 182, 212, 0.28);
+  --nexus-sidebar-bg: #070b14;
+  --nexus-sidebar-border: rgba(255, 255, 255, 0.08);
+  --nexus-card-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.5), 0 0 15px rgba(6, 182, 212, 0.07);
+}
+
+* { @apply border-border outline-ring/50; }
+html { background-color: var(--background); color: var(--foreground); }
+body { 
+  @apply bg-background text-foreground; 
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; 
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+button { cursor: pointer; }
+
+.font-mono { 
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; 
+}
+
+/* Glassmorphism Cards */
+.nexus-glass-card {
+  background-color: var(--nexus-glass-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--nexus-glass-border);
+  box-shadow: var(--nexus-card-shadow);
+  transition: background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.nexus-glass-card-violet {
+  background-color: var(--nexus-glass-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  box-shadow: var(--nexus-card-shadow);
+  transition: background-color 0.25s ease, border-color 0.25s ease;
+}
+
+/* Glowing Neon Utilities */
+.glow-cyan {
+  box-shadow: 0 0 18px rgba(6, 182, 212, 0.3);
+}
+
+.dark .glow-cyan {
+  box-shadow: 0 0 24px rgba(34, 211, 238, 0.35);
+}
+
+.glow-violet {
+  box-shadow: 0 0 18px rgba(139, 92, 246, 0.3);
+}
+
+.dark .glow-violet {
+  box-shadow: 0 0 24px rgba(168, 85, 247, 0.35);
+}
+
+.active-nav-glow {
+  box-shadow: var(--nexus-active-glow);
+}
+
+/* Quantum Ticket Gradient Button */
+.quantum-gradient-btn {
+  background: linear-gradient(135deg, #0891b2 0%, #7c3aed 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 10px rgba(8, 145, 178, 0.28);
+  transition: all 0.2s ease-in-out;
+}
+
+.dark .quantum-gradient-btn {
+  background: linear-gradient(135deg, #06b6d4 0%, #8b5cf6 100%);
+  color: #030712;
+  box-shadow: 0 0 20px rgba(6, 182, 212, 0.4), 0 0 35px rgba(139, 92, 246, 0.2);
+}
+
+.quantum-gradient-btn:hover {
+  filter: brightness(1.12);
+  transform: translateY(-1px);
+}
+
+/* Subtle Quantum Grid Pattern */
+.bg-quantum-grid {
+  background-image: radial-gradient(rgba(8, 145, 178, 0.08) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+.dark .bg-quantum-grid {
+  background-image: radial-gradient(rgba(34, 211, 238, 0.08) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+/* Selection */
+::selection { 
+  background: rgba(6, 182, 212, 0.35); 
+  color: inherit; 
+}
+
+/* Shimmer Sweep Animation for Skeleton Loaders */
+@keyframes shimmer-sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-shimmer-sweep {
+  position: relative;
+  overflow: hidden;
+}
+
+.animate-shimmer-sweep::after {
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(8, 145, 178, 0.08) 25%,
+    rgba(124, 58, 237, 0.14) 50%,
+    rgba(8, 145, 178, 0.08) 75%,
+    transparent 100%
+  );
+  animation: shimmer-sweep 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  content: '';
+}
+
+.dark .animate-shimmer-sweep::after {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(6, 182, 212, 0.06) 20%,
+    rgba(6, 182, 212, 0.22) 45%,
+    rgba(139, 92, 246, 0.22) 55%,
+    rgba(6, 182, 212, 0.06) 80%,
+    transparent 100%
+  );
+}
+
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+  background-color: rgba(226, 232, 240, 0.7);
+}
+
+.dark .skeleton-shimmer {
+  background-color: rgba(30, 41, 59, 0.5);
+}
+
+.skeleton-shimmer::after {
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(8, 145, 178, 0.12) 30%,
+    rgba(124, 58, 237, 0.16) 50%,
+    rgba(8, 145, 178, 0.12) 70%,
+    transparent 100%
+  );
+  animation: shimmer-sweep 1.8s ease-in-out infinite;
+  content: '';
+}
+
+.dark .skeleton-shimmer::after {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(6, 182, 212, 0.1) 25%,
+    rgba(6, 182, 212, 0.28) 50%,
+    rgba(139, 92, 246, 0.28) 60%,
+    rgba(6, 182, 212, 0.1) 75%,
+    transparent 100%
+  );
+}
+
+

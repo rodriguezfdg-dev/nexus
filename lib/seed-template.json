@@ -1,0 +1,83 @@
+{
+  "$schema": "Nexus SRE Platform Data Migration Schema",
+  "description": "Rellena este archivo con los datos reales de tu infraestructura y equipo para migrarlos a la base de datos SQLite.",
+  "incidents": [
+    {
+      "id": "#INC-1001",
+      "title": "Degradación de rendimiento en API Principal",
+      "priority": "Critical",
+      "status": "In Progress",
+      "service": "API Principal",
+      "env": "Production",
+      "assignee": {
+        "name": "Nombre Responsable",
+        "initials": "NR",
+        "status": "busy"
+      },
+      "reporter": {
+        "name": "Equipo Monitoreo",
+        "email": "soporte@tu-empresa.com",
+        "organization": "Operaciones TI"
+      },
+      "slaSecondsTotal": 1800,
+      "slaSecondsRemaining": 1200,
+      "aiTriaged": true,
+      "assignedToMe": true,
+      "tag": "Backend",
+      "createdTime": "10m ago"
+    }
+  ],
+  "teamMembers": [
+    {
+      "id": "usr-01",
+      "name": "Administrador Principal",
+      "email": "admin@tu-empresa.com",
+      "role": "Líder de Infraestructura / SRE",
+      "tier": "Tier 3 (Lead)",
+      "status": "online",
+      "initials": "AP"
+    }
+  ],
+  "runbooks": [
+    {
+      "id": "RB-01",
+      "title": "Procedimiento de Contingencia y Failover",
+      "category": "Database",
+      "summary": "Guía paso a paso para ejecutar conmutación por error en caso de caída del servidor primario.",
+      "tags": ["Failover", "Alta Disponibilidad", "Base de Datos"],
+      "reads": "0",
+      "lastUpdated": "Hoy",
+      "author": {
+        "name": "Equipo SRE",
+        "initials": "SRE",
+        "role": "DevOps Lead"
+      },
+      "steps": [
+        {
+          "title": "Paso 1: Verificación de conectividad",
+          "description": "Validar el estado del cluster y los logs de latencia.",
+          "command": "ping -c 4 host-primario"
+        },
+        {
+          "title": "Paso 2: Conmutar tráfico al nodo secundario",
+          "description": "Actualizar el enrutador DNS o el balanceador de carga.",
+          "command": "systemctl restart proxy-gateway"
+        }
+      ]
+    }
+  ],
+  "automationRules": [
+    {
+      "id": "RULE-01",
+      "name": "Escalamiento Automático de Incidentes Críticos",
+      "description": "Notifica automáticamente al equipo de guardia si un incidente P1 no se atiende en 5 minutos.",
+      "trigger": "SLA < 15m & Sin Asignar > 5m",
+      "condition": "Priority == 'Critical'",
+      "action": "Enviar notificación prioritaria a canal de guardia",
+      "status": "active",
+      "executionCountToday": 0,
+      "lastTriggered": "Never",
+      "category": "Escalation"
+    }
+  ]
+}
