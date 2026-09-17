@@ -76,7 +76,7 @@ const COLUMNS: ColumnDef[] = [
 ]
 
 export default function KanbanPage() {
-  const { incidents, sections, usersList, updateIncident, deleteIncident, refresh, loading } = useNexusData()
+  const { incidents, sections, usersList, assignableUsers, updateIncident, deleteIncident, refresh, loading } = useNexusData()
   const { success, info, error } = useToast()
 
   const [searchQuery, setSearchQuery] = useState('')
@@ -548,11 +548,14 @@ export default function KanbanPage() {
                         className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-cyan-500"
                       >
                         <option value="">Sin Asignar</option>
-                        {usersList.map((u) => (
+                        {assignableUsers.map((u) => (
                           <option key={u.id} value={u.name}>
                             {u.name} ({u.role})
                           </option>
                         ))}
+                        {!assignableUsers.some((u) => u.name === editAssignee) && editAssignee && editAssignee !== 'Sin Asignar' && !editAssignee.toLowerCase().includes('super') && (
+                          <option value={editAssignee}>{editAssignee}</option>
+                        )}
                       </select>
                     </div>
                   </div>

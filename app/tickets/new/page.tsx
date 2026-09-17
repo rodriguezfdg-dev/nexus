@@ -24,7 +24,7 @@ import { FileAttachmentZone, StagedFile } from '@/components/nexus/file-attachme
 
 export default function NewTicketPage() {
   const router = useRouter()
-  const { sections, usersList, createIncident } = useNexusData()
+  const { sections, usersList, assignableUsers, createIncident } = useNexusData()
   const { success, error } = useToast()
 
   const [title, setTitle] = useState('')
@@ -233,7 +233,7 @@ export default function NewTicketPage() {
               className="w-full rounded-xl border border-border bg-background/80 px-3.5 py-2.5 text-sm text-foreground outline-none focus:border-cyan-500 transition font-medium"
             >
               <option value="">-- Sin Asignar (Cola Libre) --</option>
-              {usersList.map((user) => (
+              {assignableUsers.map((user) => (
                 <option key={user.id} value={user.id}>
                   {user.name} ({user.role}) - {user.email}
                 </option>

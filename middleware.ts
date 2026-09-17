@@ -4,10 +4,10 @@ import type { NextRequest } from 'next/server'
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Ignore Next.js internals, static assets, and auth APIs
+  // Ignore Next.js internals, static assets, and ALL API endpoints (so background data fetching works)
   if (
     pathname.startsWith('/_next') ||
-    pathname.startsWith('/api/auth') ||
+    pathname.startsWith('/api/') ||
     pathname === '/favicon.ico' ||
     pathname.includes('.')
   ) {

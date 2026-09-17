@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react'
 
 export type Priority = 'Critical' | 'High' | 'Medium' | 'Low'
 export type IncidentStatus = 'Open' | 'In Progress' | 'Blocked' | 'Resolved'
@@ -158,6 +158,7 @@ interface DataContextType {
   sections: Section[]
   roles: RoleItem[]
   usersList: UserItem[]
+  assignableUsers: UserItem[]
   teamMembers: TeamMember[]
   runbooks: Runbook[]
   automationRules: AutomationRule[]
@@ -224,6 +225,20 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
+
+  const assignableUsers = useMemo(() => {
+    return usersList.filter((u) => {
+      const name = (u.name || '').toLowerCase()
+      const email = (u.email || '').toLowerCase()
+      const isSuperAdmin =
+        name.includes('super administrador') ||
+        name.includes('superadmin') ||
+        email.includes('admin@nexus.local') ||
+        u.id === 'usr-superadmin'
+      const isInactive = u.status === 'inactivo' || u.status === 'inactive'
+      return !isSuperAdmin && !isInactive
+    })
+  }, [usersList])
 
   useEffect(() => {
     fetchAll()
@@ -376,6 +391,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         sections,
         roles,
         usersList,
+        assignableUsers,
         teamMembers,
         runbooks,
         automationRules,

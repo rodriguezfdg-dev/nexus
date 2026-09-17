@@ -82,7 +82,7 @@ export default function IncidentDetailPage({
   const [showCloseConfirm, setShowCloseConfirm] = useState(false)
   const [feedbackToast, setFeedbackToast] = useState<string | null>(null)
 
-  const { sections, usersList, deleteIncident, refresh: refreshData } = useNexusData()
+  const { sections, usersList, assignableUsers, deleteIncident, refresh: refreshData } = useNexusData()
 
   // Edit ticket state
   const [showEditModal, setShowEditModal] = useState(false)
@@ -651,12 +651,12 @@ export default function IncidentDetailPage({
               className="w-full rounded-xl border border-border bg-background/80 px-3.5 py-2.5 text-sm text-foreground outline-none focus:border-cyan-500 transition font-medium"
             >
               <option value="">-- Sin Asignar (Cola Libre) --</option>
-              {usersList.map((u) => (
+              {assignableUsers.map((u) => (
                 <option key={u.id} value={u.name}>
                   {u.name} ({u.role})
                 </option>
               ))}
-              {!usersList.some((u) => u.name === editAssigneeName) && editAssigneeName && (
+              {!assignableUsers.some((u) => u.name === editAssigneeName) && editAssigneeName && editAssigneeName !== 'Sin Asignar' && !editAssigneeName.toLowerCase().includes('super') && (
                 <option value={editAssigneeName}>{editAssigneeName}</option>
               )}
             </select>
@@ -1227,12 +1227,12 @@ export default function IncidentDetailPage({
                     className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500"
                   >
                     <option value="">Sin Asignar</option>
-                    {usersList.map((u) => (
+                    {assignableUsers.map((u) => (
                       <option key={u.id} value={u.name}>
                         {u.name} ({u.role})
                       </option>
                     ))}
-                    {!usersList.some((u) => u.name === editAssigneeName) && editAssigneeName && (
+                    {!assignableUsers.some((u) => u.name === editAssigneeName) && editAssigneeName && editAssigneeName !== 'Sin Asignar' && !editAssigneeName.toLowerCase().includes('super') && (
                       <option value={editAssigneeName}>{editAssigneeName}</option>
                     )}
                   </select>
