@@ -15,6 +15,8 @@ import {
   Sliders,
   Sparkles,
   Loader2,
+  ImageIcon,
+  X,
 } from 'lucide-react'
 import { useNexusData, Priority } from '@/lib/data-context'
 import { useToast } from '@/components/nexus/toast-provider'
@@ -40,6 +42,45 @@ export default function NewTicketPage() {
       setSectionName(sections[0].name)
     }
   }, [sections, sectionName])
+
+  // Handle image pasting directly from clipboard (Ctrl+V)
+  const handleDescriptionPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = e.clipboardData?.items
+    if (!items) return
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i]
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile()
+        if (file) {
+          e.preventDefault()
+          const now = new Date()
+          const pad = (n: number) => String(n).padStart(2, '0')
+          const timestamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`
+          const ext = file.type.split('/')[1] || 'png'
+          const renamedFile = new File([file], `captura_${timestamp}.${ext}`, { type: file.type })
+
+          const newStaged: StagedFile = {
+            id: `pasted-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            file: renamedFile,
+            previewUrl: URL.createObjectURL(renamedFile),
+          }
+
+          setStagedFiles((prev) => [...prev, newStaged])
+
+          // Insert text marker in textarea
+          const target = e.currentTarget
+          const start = target.selectionStart
+          const end = target.selectionEnd
+          const marker = `\n[📷 Imagen pegada: captura_${timestamp}.${ext}]\n`
+          const updated = description.substring(0, start) + marker + description.substring(end)
+          setDescription(updated)
+
+          success('Imagen Pegada', `Se adjuntó la captura "${renamedFile.name}" desde el portapapeles.`)
+        }
+      }
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -262,17 +303,72 @@ export default function NewTicketPage() {
 
         {/* Detailed Description */}
         <div className="space-y-2">
-          <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-            <FileText className="size-3.5 text-cyan-500" />
-            Descripción Detallada del Problema
-          </label>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <FileText className="size-3.5 text-cyan-500" />
+              Descripción Detallada del Problema
+            </label>
+            <span className="text-[11px] text-cyan-600 dark:text-cyan-400 flex items-center gap-1 font-semibold bg-cyan-500/10 px-2 py-0.5 rounded-md border border-cyan-500/20">
+              <ImageIcon className="size-3" />
+              Presiona Ctrl+V para pegar capturas de pantalla
+            </span>
+          </div>
           <textarea
             rows={4}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Detalla qué está ocurriendo, pasos para reproducirlo, clientes afectados..."
+            onPaste={handleDescriptionPaste}
+            placeholder="Detalla qué está ocurriendo, pasos para reproducirlo, clientes afectados... (Puedes presionar Ctrl+V aquí para pegar una imagen o captura de pantalla)"
             className="w-full rounded-xl border border-border bg-background/80 p-3.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition resize-y font-normal"
           />
+
+          {/* Pasted Images Strip */}
+          {stagedFiles.filter((f) => f.file.type.startsWith('image/')).length > 0 && (
+            <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/5 p-3 space-y-2">
+              <div className="flex items-center justify-between text-[11px] font-semibold text-cyan-700 dark:text-cyan-300">
+                <span className="flex items-center gap-1.5">
+                  <ImageIcon className="size-3.5" />
+                  Capturas / Imágenes pegadas ({stagedFiles.filter((f) => f.file.type.startsWith('image/')).length})
+                </span>
+                <span className="text-[10px] opacity-75">Se guardarán automáticamente con el ticket</span>
+              </div>
+              <div className="flex flex-wrap gap-2.5 pt-1">
+                {stagedFiles
+                  .filter((f) => f.file.type.startsWith('image/'))
+                  .map((img) => (
+                    <div
+                      key={img.id}
+                      className="group relative flex items-center gap-2 rounded-lg border border-border bg-card p-1.5 pr-2.5 shadow-sm hover:border-cyan-500/50 transition"
+                    >
+                      {img.previewUrl && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={img.previewUrl}
+                          alt={img.file.name}
+                          className="size-10 rounded-md object-cover border border-border/60"
+                        />
+                      )}
+                      <div className="text-[11px] max-w-[150px] truncate">
+                        <p className="font-medium text-foreground truncate">{img.file.name}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {(img.file.size / 1024).toFixed(0)} KB
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setStagedFiles((prev) => prev.filter((item) => item.id !== img.id))
+                        }
+                        className="ml-1 p-1 rounded-md text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 transition cursor-pointer"
+                        title="Quitar imagen"
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Universal File Attachments Zone */}
