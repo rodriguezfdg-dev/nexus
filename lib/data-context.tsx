@@ -1,6 +1,7 @@
 'use client'
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react'
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { showWindowsNotification } from '@/lib/desktop-notifications'
 
 export type Priority = 'Critical' | 'High' | 'Medium' | 'Low'
 export type IncidentStatus = 'Open' | 'In Progress' | 'Blocked' | 'Resolved'
@@ -196,6 +197,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [automationRules, setAutomationRules] = useState<AutomationRule[]>([])
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([])
   const [loading, setLoading] = useState(true)
+  const knownIncidentsRef = useRef<Map<string, string>>(new Map())
+  const isInitialLoadRef = useRef(true)
 
   const fetchAll = useCallback(async () => {
     try {
@@ -210,7 +213,36 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         fetch('/api/roles'),
       ])
 
-      if (incRes.ok) setIncidents(await incRes.json())
+      if (incRes.ok) {
+        const freshList: Incident[] = await incRes.json()
+        setIncidents(freshList)
+
+        if (!isInitialLoadRef.current && Array.isArray(freshList)) {
+          freshList.forEach((fresh) => {
+            const prevStatus = knownIncidentsRef.current.get(fresh.id)
+            if (!prevStatus) {
+              showWindowsNotification({
+                title: 'Desarrollo TI - Nuevo Ticket',
+                body: `${fresh.id}: ${fresh.title} (${fresh.service})`,
+                onClickUrl: `/incidents/${fresh.id.replace('#', '')}`,
+              })
+            } else if (prevStatus !== fresh.status) {
+              showWindowsNotification({
+                title: 'Desarrollo TI - Ticket Atendido',
+                body: `Ticket ${fresh.id} cambió de estado a "${fresh.status}".`,
+                onClickUrl: `/incidents/${fresh.id.replace('#', '')}`,
+              })
+            }
+          })
+        }
+
+        const newMap = new Map<string, string>()
+        if (Array.isArray(freshList)) {
+          freshList.forEach((i) => newMap.set(i.id, i.status))
+        }
+        knownIncidentsRef.current = newMap
+        isInitialLoadRef.current = false
+      }
       if (secRes.ok) setSections(await secRes.json())
       if (userRes.ok) setUsersList(await userRes.json())
       if (teamRes.ok) setTeamMembers(await teamRes.json())
@@ -243,6 +275,43 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     fetchAll()
   }, [fetchAll])
+
+  // Polling periódico para detectar tickets creados o modificados en tiempo real
+  useEffect(() => {
+    const pollTimer = setInterval(() => {
+      fetch('/api/incidents')
+        .then((res) => res.json())
+        .then((freshList: Incident[]) => {
+          if (!Array.isArray(freshList)) return
+          if (!isInitialLoadRef.current) {
+            freshList.forEach((fresh) => {
+              const prevStatus = knownIncidentsRef.current.get(fresh.id)
+              if (!prevStatus) {
+                showWindowsNotification({
+                  title: 'Desarrollo TI - Nuevo Ticket',
+                  body: `${fresh.id}: ${fresh.title} (${fresh.service})`,
+                  onClickUrl: `/incidents/${fresh.id.replace('#', '')}`,
+                })
+              } else if (prevStatus !== fresh.status) {
+                showWindowsNotification({
+                  title: 'Desarrollo TI - Ticket Atendido',
+                  body: `Ticket ${fresh.id} cambió de estado a "${fresh.status}".`,
+                  onClickUrl: `/incidents/${fresh.id.replace('#', '')}`,
+                })
+              }
+            })
+          }
+          const newMap = new Map<string, string>()
+          freshList.forEach((i) => newMap.set(i.id, i.status))
+          knownIncidentsRef.current = newMap
+          isInitialLoadRef.current = false
+          setIncidents(freshList)
+        })
+        .catch(() => {})
+    }, 10000)
+
+    return () => clearInterval(pollTimer)
+  }, [])
 
   // Live SLA countdown ticker
   useEffect(() => {

@@ -22,6 +22,12 @@ import {
 } from 'lucide-react'
 import { useLanguage } from '@/lib/i18n/context'
 import { useNexusData } from '@/lib/data-context'
+import {
+  getNotificationPermission,
+  requestNotificationPermission,
+  showWindowsNotification,
+  NotificationPermState,
+} from '@/lib/desktop-notifications'
 
 export function NexusTopBar({
   onCreateTicket,
@@ -38,6 +44,7 @@ export function NexusTopBar({
   const [searchQuery, setSearchQuery] = useState('')
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [notificationCount, setNotificationCount] = useState(3)
+  const [windowsPerm, setWindowsPerm] = useState<NotificationPermState>('default')
 
   const searchContainerRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -74,6 +81,32 @@ export function NexusTopBar({
       document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setWindowsPerm(getNotificationPermission())
+    }
+  }, [notificationsOpen])
+
+  const handleEnableWindowsNotifications = async () => {
+    const res = await requestNotificationPermission()
+    setWindowsPerm(res)
+    if (res === 'granted') {
+      showWindowsNotification({
+        title: 'Desarrollo TI - Lander Inmobiliaria',
+        body: '¡Notificaciones de Windows activadas exitosamente! Recibirás avisos de nuevos tickets y cambios de estado.',
+        onClickUrl: '/kanban',
+      })
+    }
+  }
+
+  const handleTestWindowsNotification = () => {
+    showWindowsNotification({
+      title: 'Desarrollo TI - Lander Inmobiliaria',
+      body: 'Prueba de alerta: Las notificaciones del sistema Windows están funcionando correctamente.',
+      onClickUrl: '/kanban',
+    })
+  }
 
   const currentTheme = mounted ? (resolvedTheme || theme || 'dark') : 'dark'
 
@@ -307,6 +340,51 @@ export function NexusTopBar({
                   >
                     Limpiar todo
                   </button>
+                </div>
+
+                {/* Tarjeta de Control de Notificaciones de Windows */}
+                <div className="my-2 p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-xs space-y-1.5 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 font-bold text-cyan-700 dark:text-cyan-300">
+                      <Bell className="size-3.5" />
+                      <span>Notificaciones de Windows</span>
+                    </div>
+                    <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ${
+                      windowsPerm === 'granted'
+                        ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                        : windowsPerm === 'denied'
+                        ? 'bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30'
+                        : 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30'
+                    }`}>
+                      {windowsPerm === 'granted' ? 'Activadas' : windowsPerm === 'denied' ? 'Bloqueadas' : 'Inactivas'}
+                    </span>
+                  </div>
+
+                  {windowsPerm === 'granted' ? (
+                    <div className="flex items-center justify-between gap-2 pt-0.5">
+                      <span className="text-[11px] text-muted-foreground">Alertas nativas activas en tu equipo.</span>
+                      <button
+                        onClick={handleTestWindowsNotification}
+                        className="px-2.5 py-1 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-[11px] transition shrink-0 cursor-pointer shadow-xs"
+                      >
+                        🔔 Probar
+                      </button>
+                    </div>
+                  ) : windowsPerm === 'denied' ? (
+                    <p className="text-[11px] text-amber-500 dark:text-amber-400 leading-snug">
+                      Están bloqueadas en el navegador. Haz clic en el candado/ícono a la izquierda de la dirección web y selecciona <strong>Allow (Permitir)</strong>.
+                    </p>
+                  ) : (
+                    <div className="flex items-center justify-between gap-2 pt-0.5">
+                      <span className="text-[11px] text-muted-foreground">Recibe avisos en tu pantalla.</span>
+                      <button
+                        onClick={handleEnableWindowsNotifications}
+                        className="px-2.5 py-1 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-[11px] transition shrink-0 cursor-pointer shadow-xs"
+                      >
+                        Activar Ahora
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <div className="mt-2 space-y-2 max-h-60 overflow-y-auto">
                   <div className="flex gap-2.5 rounded-lg p-2 bg-amber-500/10 border border-amber-500/20 text-xs">
