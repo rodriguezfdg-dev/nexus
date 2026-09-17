@@ -101,11 +101,9 @@ export default function LoginPage() {
         return
       }
 
-      if (rememberMe) {
-        try {
-          localStorage.setItem('nexus_user', JSON.stringify(data.user))
-        } catch (e) {}
-      }
+      try {
+        localStorage.setItem('nexus_user', JSON.stringify(data.user))
+      } catch (e) {}
 
       success('Sesión Iniciada', `Bienvenido al sistema, ${data.user.name}.`)
       router.push('/kanban')

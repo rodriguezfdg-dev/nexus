@@ -373,11 +373,20 @@ export default function KanbanPage() {
                         {ticket.title}
                       </Link>
 
-                      {/* Middle metadata: Section Tag */}
+                      {/* Middle metadata: Section Tag + Creator + Time */}
                       <div className="mt-2.5 flex items-center gap-1.5 flex-wrap">
                         <span className="font-mono text-[10px] px-2 py-0.5 rounded-md bg-secondary text-secondary-foreground font-semibold border border-border">
                           {ticket.service || ticket.tag || 'General'}
                         </span>
+                        {ticket.reporter?.name && (
+                          <span
+                            className="font-mono text-[10px] text-muted-foreground flex items-center gap-1 bg-background/60 px-1.5 py-0.5 rounded border border-border/60"
+                            title={`Creado por: ${ticket.reporter.name}${ticket.reporter.email ? ` (${ticket.reporter.email})` : ''}`}
+                          >
+                            <User className="size-2.5 text-cyan-500 shrink-0" />
+                            <span className="truncate max-w-[95px]">{ticket.reporter.name}</span>
+                          </span>
+                        )}
                         <span className="font-mono text-[10px] text-muted-foreground">
                           {ticket.createdTime}
                         </span>
@@ -592,12 +601,23 @@ export default function KanbanPage() {
                 <>
                   <div>
                     <h2 className="text-lg font-bold text-foreground">{selectedTicketDetail.title}</h2>
-                    <div className="mt-2 text-xs text-muted-foreground space-y-1">
+                    <div className="mt-2 text-xs text-muted-foreground space-y-1.5">
                       <p><strong>Sección / Servicio:</strong> {selectedTicketDetail.service}</p>
                       <p><strong>Entorno:</strong> {selectedTicketDetail.env}</p>
                       <p><strong>Asignado a:</strong> {selectedTicketDetail.assignee.name}</p>
-                      <p><strong>Reportado por:</strong> {selectedTicketDetail.reporter?.name || 'Sistema'}</p>
-                      <p><strong>Fecha:</strong> {selectedTicketDetail.createdTime}</p>
+                      <p className="flex items-center gap-1.5 flex-wrap">
+                        <strong>Creado por:</strong>
+                        <span className="font-bold text-foreground">{selectedTicketDetail.reporter?.name || 'Operador en Línea'}</span>
+                        {selectedTicketDetail.reporter?.email && (
+                          <span className="text-[11px] text-muted-foreground font-mono">({selectedTicketDetail.reporter.email})</span>
+                        )}
+                        {selectedTicketDetail.reporter?.organization && (
+                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-secondary text-secondary-foreground border border-border">
+                            {selectedTicketDetail.reporter.organization}
+                          </span>
+                        )}
+                      </p>
+                      <p><strong>Fecha de Creación:</strong> {selectedTicketDetail.createdTime}</p>
                     </div>
                   </div>
 

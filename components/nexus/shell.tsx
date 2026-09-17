@@ -79,6 +79,19 @@ export function NexusShell({ children }: { children: React.ReactNode }) {
             .slice(0, 2)
         : 'OP'
 
+      let reporterName = 'Operador en Línea'
+      let reporterEmail = 'soporte@nexus.io'
+      let reporterOrg = 'Sede Central'
+      try {
+        const uStr = localStorage.getItem('nexus_user')
+        if (uStr) {
+          const u = JSON.parse(uStr)
+          if (u.name) reporterName = u.name
+          if (u.email) reporterEmail = u.email
+          if (u.role) reporterOrg = u.role
+        }
+      } catch (e) {}
+
       const newId = await createIncident({
         title: ticketTitle.trim(),
         priority: ticketPriority,
@@ -89,12 +102,17 @@ export function NexusShell({ children }: { children: React.ReactNode }) {
           initials,
           status: 'online',
         },
+        reporter: {
+          name: reporterName,
+          email: reporterEmail,
+          organization: reporterOrg,
+        },
         slaSecondsTotal: ticketPriority === 'Critical' ? 900 : ticketPriority === 'High' ? 3600 : 14400,
         slaSecondsRemaining: ticketPriority === 'Critical' ? 900 : ticketPriority === 'High' ? 3600 : 14400,
         aiTriaged: false,
         assignedToMe: true,
         tag: ticketService.trim() || 'General',
-        createdTime: 'Just now',
+        createdTime: 'Justo ahora',
       })
 
       setTicketCreatedNotice(`Incident ${newId} created successfully in SQLite.`)

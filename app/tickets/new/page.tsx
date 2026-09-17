@@ -35,6 +35,16 @@ export default function NewTicketPage() {
   const [description, setDescription] = useState('')
   const [stagedFiles, setStagedFiles] = useState<StagedFile[]>([])
   const [loading, setLoading] = useState(false)
+  const [currentUser, setCurrentUser] = useState<{ name: string; email: string; role: string } | null>(null)
+
+  React.useEffect(() => {
+    try {
+      const userStr = localStorage.getItem('nexus_user')
+      if (userStr) {
+        setCurrentUser(JSON.parse(userStr))
+      }
+    } catch (e) {}
+  }, [])
 
   // Pre-select first section if available
   React.useEffect(() => {
@@ -98,6 +108,10 @@ export default function NewTicketPage() {
         ? selectedUser.name.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase()
         : 'UN'
 
+      const reporterName = currentUser?.name || 'Operador en Línea'
+      const reporterEmail = currentUser?.email || 'soporte@nexus.io'
+      const reporterOrg = currentUser?.role || 'Sede Central'
+
       const ticketId = await createIncident({
         title: title.trim(),
         priority,
@@ -109,9 +123,9 @@ export default function NewTicketPage() {
           status: 'online',
         },
         reporter: {
-          name: 'Operador en Línea',
-          email: 'soporte@nexus.io',
-          organization: 'Sede Central',
+          name: reporterName,
+          email: reporterEmail,
+          organization: reporterOrg,
         },
         slaSecondsTotal: priority === 'Critical' ? 1800 : priority === 'High' ? 3600 : 14400,
         slaSecondsRemaining: priority === 'Critical' ? 1800 : priority === 'High' ? 3600 : 14400,
@@ -125,7 +139,7 @@ export default function NewTicketPage() {
       if (stagedFiles.length > 0) {
         const formData = new FormData()
         formData.append('incidentId', ticketId)
-        formData.append('uploadedBy', 'Operador en Línea')
+        formData.append('uploadedBy', reporterName)
         stagedFiles.forEach((f) => {
           formData.append('files', f.file)
         })
@@ -187,6 +201,27 @@ export default function NewTicketPage() {
             placeholder="Ej: Interrupción intermitente en servidor de base de datos..."
             className="w-full rounded-xl border border-border bg-background/80 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition font-medium"
           />
+        </div>
+
+        {/* Current Creator / Requester Indicator */}
+        <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-xl border border-cyan-500/30 bg-cyan-500/5 text-xs shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <div className="size-8 rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center font-bold text-cyan-600 dark:text-cyan-400 text-xs shadow-xs">
+              {(currentUser?.name || 'OP').slice(0, 2).toUpperCase()}
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-muted-foreground font-medium">Registrando ticket como solicitante:</span>
+              <span className="font-bold text-foreground">{currentUser?.name || 'Operador en Línea'}</span>
+              {currentUser?.role && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground font-semibold uppercase border border-border">
+                  {currentUser.role}
+                </span>
+              )}
+            </div>
+          </div>
+          {currentUser?.email && (
+            <span className="text-[11px] text-muted-foreground font-mono">{currentUser.email}</span>
+          )}
         </div>
 
         {/* 2-Column Grid: Section & Assignee */}

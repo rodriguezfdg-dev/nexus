@@ -512,13 +512,20 @@ export default function IncidentDetailPage({
             <ArrowLeft className="size-3.5" />
             <span>Volver al Tablero</span>
           </Link>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <span className="font-mono text-lg font-extrabold text-cyan-600 dark:text-cyan-400 bg-cyan-500/10 border border-cyan-500/30 px-2.5 py-0.5 rounded-lg">
               {incident.id}
             </span>
             <span className="text-xs text-muted-foreground">
               Abierto {incident.createdTime}
             </span>
+            {incident.reporter?.name && (
+              <span className="text-xs font-medium text-foreground flex items-center gap-1.5 bg-card/80 px-2.5 py-1 rounded-lg border border-border shadow-xs">
+                <User className="size-3.5 text-cyan-500" />
+                <span className="text-muted-foreground">Creado por:</span>
+                <strong className="text-cyan-700 dark:text-cyan-300 font-bold">{incident.reporter.name}</strong>
+              </span>
+            )}
           </div>
         </div>
 
@@ -609,6 +616,37 @@ export default function IncidentDetailPage({
             placeholder="Ej: Interrupción intermitente en servidor..."
             className="w-full rounded-xl border border-border bg-background/80 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition font-medium"
           />
+        </div>
+
+        {/* Creator / Requester Identity Card */}
+        <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl border border-cyan-500/30 bg-cyan-500/5 dark:bg-cyan-950/20 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="size-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center font-bold text-cyan-600 dark:text-cyan-400 text-sm shadow-xs shrink-0">
+              {(incident.reporter?.name || 'OP').slice(0, 2).toUpperCase()}
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Usuario Creador / Solicitante:</span>
+                <span className="font-bold text-foreground text-sm">{incident.reporter?.name || 'Operador en Línea'}</span>
+                {incident.reporter?.organization && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-md bg-secondary text-secondary-foreground font-semibold border border-border">
+                    {incident.reporter.organization}
+                  </span>
+                )}
+              </div>
+              {incident.reporter?.email && (
+                <div className="text-xs text-muted-foreground mt-0.5 font-mono">
+                  {incident.reporter.email}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span>Fecha de creación:</span>
+            <span className="font-mono font-bold text-foreground bg-background/80 px-2.5 py-1 rounded-lg border border-border">
+              {incident.createdTime || 'Justo ahora'}
+            </span>
+          </div>
         </div>
 
         {/* 2-Column Grid: Section & Assignee */}
