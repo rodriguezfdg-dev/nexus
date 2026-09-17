@@ -21,6 +21,7 @@ import {
   ShieldAlert,
   Sparkles,
   RefreshCw,
+  Paperclip,
 } from 'lucide-react'
 import { useNexusData, Incident, IncidentStatus, Priority } from '@/lib/data-context'
 import { useToast } from '@/components/nexus/toast-provider'
@@ -280,20 +281,25 @@ export default function KanbanPage() {
                     >
                       {/* Top row: ID + Priority */}
                       <div className="flex items-center justify-between gap-2 mb-2">
-                        <span className="font-mono text-xs font-bold text-cyan-600 dark:text-cyan-400">
-                          {ticket.id}
-                        </span>
+                        <Link
+                          href={`/incidents/${ticket.id.replace('#', '')}`}
+                          className="font-mono text-xs font-bold text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1"
+                          title="Ingresar al Ticket"
+                        >
+                          <span>{ticket.id}</span>
+                          <ArrowRight className="size-3" />
+                        </Link>
                         {getPriorityBadge(ticket.priority)}
                       </div>
 
                       {/* Ticket Title */}
-                      <h3
-                        onClick={() => setSelectedTicketDetail(ticket)}
-                        className="text-xs sm:text-sm font-bold text-foreground hover:text-cyan-500 cursor-pointer transition line-clamp-2 leading-snug"
-                        title={ticket.title}
+                      <Link
+                        href={`/incidents/${ticket.id.replace('#', '')}`}
+                        className="text-xs sm:text-sm font-bold text-foreground hover:text-cyan-500 transition line-clamp-2 leading-snug cursor-pointer"
+                        title={`Ingresar al ticket: ${ticket.title}`}
                       >
                         {ticket.title}
-                      </h3>
+                      </Link>
 
                       {/* Middle metadata: Section Tag */}
                       <div className="mt-2.5 flex items-center gap-1.5 flex-wrap">
@@ -303,6 +309,15 @@ export default function KanbanPage() {
                         <span className="font-mono text-[10px] text-muted-foreground">
                           {ticket.createdTime}
                         </span>
+                        {ticket.attachments && ticket.attachments.length > 0 && (
+                          <span
+                            className="flex items-center gap-1 font-mono text-[10px] px-1.5 py-0.5 rounded-md bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30"
+                            title={`${ticket.attachments.length} archivo(s) adjunto(s)`}
+                          >
+                            <Paperclip className="size-3" />
+                            <span>{ticket.attachments.length}</span>
+                          </span>
+                        )}
                       </div>
 
                       {/* Bottom row: Assignee + Status Switcher */}
@@ -317,19 +332,30 @@ export default function KanbanPage() {
                           </span>
                         </div>
 
-                        {/* Quick Move Selector */}
-                        <select
-                          disabled={updatingId === ticket.id}
-                          value={ticket.status}
-                          onChange={(e) => handleStatusChange(ticket.id, e.target.value as IncidentStatus)}
-                          className="rounded-lg border border-border bg-background px-2 py-1 text-[11px] font-semibold text-foreground outline-none cursor-pointer hover:border-cyan-500 transition disabled:opacity-50"
-                          title="Mover a otra columna"
-                        >
-                          <option value="Open">Pendiente</option>
-                          <option value="In Progress">En Proceso</option>
-                          <option value="Blocked">En Revisión</option>
-                          <option value="Resolved">Cerrado</option>
-                        </select>
+                        <div className="flex items-center gap-1.5">
+                          {/* Quick Move Selector */}
+                          <select
+                            disabled={updatingId === ticket.id}
+                            value={ticket.status}
+                            onChange={(e) => handleStatusChange(ticket.id, e.target.value as IncidentStatus)}
+                            className="rounded-lg border border-border bg-background px-2 py-1 text-[11px] font-semibold text-foreground outline-none cursor-pointer hover:border-cyan-500 transition disabled:opacity-50"
+                            title="Mover a otra columna"
+                          >
+                            <option value="Open">Pendiente</option>
+                            <option value="In Progress">En Proceso</option>
+                            <option value="Blocked">En Revisión</option>
+                            <option value="Resolved">Cerrado</option>
+                          </select>
+
+                          {/* Direct Enter Button */}
+                          <Link
+                            href={`/incidents/${ticket.id.replace('#', '')}`}
+                            className="p-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/20 transition flex items-center justify-center"
+                            title="Ingresar al Ticket"
+                          >
+                            <ArrowRight className="size-3.5" />
+                          </Link>
+                        </div>
                       </div>
                     </div>
                   ))
@@ -392,7 +418,40 @@ export default function KanbanPage() {
                 </div>
               )}
 
-              <div className="pt-2 flex items-center justify-end gap-2 border-t border-border">
+              {/* Attachments Section in Modal */}
+              {selectedTicketDetail.attachments && selectedTicketDetail.attachments.length > 0 && (
+                <div className="space-y-2 pt-1 border-t border-border">
+                  <span className="font-bold text-xs text-foreground flex items-center gap-1.5">
+                    <Paperclip className="size-3.5 text-cyan-500" />
+                    Archivos Adjuntos ({selectedTicketDetail.attachments.length})
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {selectedTicketDetail.attachments.map((att) => (
+                      <a
+                        key={att.id}
+                        href={`/api/attachments/${att.id}/download`}
+                        download={att.filename}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center justify-between gap-2 p-2 rounded-lg border border-border bg-secondary/30 hover:border-cyan-500 hover:bg-cyan-500/10 transition text-xs font-mono group"
+                      >
+                        <span className="truncate group-hover:text-cyan-500">{att.filename}</span>
+                        <span className="text-[10px] text-muted-foreground shrink-0">Descargar</span>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="pt-2 flex items-center justify-between gap-2 border-t border-border">
+                <Link
+                  href={`/incidents/${selectedTicketDetail.id.replace('#', '')}`}
+                  className="quantum-gradient-btn flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white shadow transition"
+                >
+                  <span>Ver Ticket Completo</span>
+                  <ArrowRight className="size-3.5" />
+                </Link>
+
                 <button
                   onClick={() => setSelectedTicketDetail(null)}
                   className="px-4 py-2 rounded-xl border border-border text-xs font-medium text-foreground hover:bg-muted transition"

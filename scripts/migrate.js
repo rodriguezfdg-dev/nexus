@@ -64,7 +64,18 @@ async function main() {
       tag TEXT NOT NULL DEFAULT 'General',
       created_time TEXT NOT NULL,
       ai_copilot_json TEXT,
-      timeline_json TEXT
+      timeline_json TEXT,
+      attachments_json TEXT
+    );`,
+    `CREATE TABLE IF NOT EXISTS attachments (
+      id TEXT PRIMARY KEY,
+      incident_id TEXT NOT NULL,
+      filename TEXT NOT NULL,
+      file_size INTEGER NOT NULL,
+      file_type TEXT NOT NULL,
+      file_url TEXT NOT NULL,
+      uploaded_by TEXT NOT NULL DEFAULT 'Operador',
+      created_at TEXT NOT NULL
     );`,
     `CREATE TABLE IF NOT EXISTS team_members (
       id TEXT PRIMARY KEY,

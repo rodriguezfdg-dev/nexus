@@ -37,6 +37,17 @@ export interface MacroTemplate {
   type: 'internal' | 'customer'
 }
 
+export interface TicketAttachment {
+  id: string
+  incidentId: string
+  filename: string
+  fileSize: number
+  fileType: string
+  fileUrl: string
+  uploadedBy: string
+  createdAt: string
+}
+
 export interface IncidentDetail {
   id: string
   title: string
@@ -60,6 +71,7 @@ export interface IncidentDetail {
   assignedToMe: boolean
   tag: string
   createdTime: string
+  attachments?: TicketAttachment[]
   
   // AI Copilot Data
   aiCopilot: {

@@ -22,14 +22,15 @@ import {
   EyeOff,
   Sliders,
   Check,
+  Briefcase,
 } from 'lucide-react'
-import { useNexusData, Section, UserItem } from '@/lib/data-context'
+import { useNexusData, Section, UserItem, RoleItem } from '@/lib/data-context'
 import { useToast } from '@/components/nexus/toast-provider'
 
-type TabType = 'users' | 'sections' | 'email'
+type TabType = 'users' | 'sections' | 'roles' | 'email'
 
 export default function AdminControlPanel() {
-  const { sections, createSection, deleteSection, refresh } = useNexusData()
+  const { sections, roles, createSection, deleteSection, createRole, deleteRole, refresh } = useNexusData()
   const { success, error, info } = useToast()
 
   const [activeTab, setActiveTab] = useState<TabType>('users')
@@ -41,9 +42,18 @@ export default function AdminControlPanel() {
   const [showCreateUserModal, setShowCreateUserModal] = useState(false)
   const [newUserName, setNewUserName] = useState('')
   const [newUserEmail, setNewUserEmail] = useState('')
-  const [newUserRole, setNewUserRole] = useState('Soporte TI')
+  const [newUserRole, setNewUserRole] = useState('')
   const [newUserPassword, setNewUserPassword] = useState('')
   const [creatingUser, setCreatingUser] = useState(false)
+
+  // --- ROLES STATE ---
+  const [roleSearch, setRoleSearch] = useState('')
+  const [showCreateRoleModal, setShowCreateRoleModal] = useState(false)
+  const [newRoleName, setNewRoleName] = useState('')
+  const [newRoleDesc, setNewRoleDesc] = useState('')
+  const [newRoleDept, setNewRoleDept] = useState('General')
+  const [newRoleColor, setNewRoleColor] = useState('cyan')
+  const [creatingRole, setCreatingRole] = useState(false)
 
   // --- SECTIONS STATE ---
   const [showCreateSectionModal, setShowCreateSectionModal] = useState(false)
@@ -212,6 +222,44 @@ export default function AdminControlPanel() {
     }
   }
 
+  // --- ROLES & CARGOS HANDLERS ---
+  const handleCreateRole = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newRoleName.trim()) {
+      error('Campo Requerido', 'Escribe el nombre del rol o cargo.')
+      return
+    }
+
+    setCreatingRole(true)
+    try {
+      await createRole({
+        name: newRoleName.trim(),
+        description: newRoleDesc.trim(),
+        department: newRoleDept.trim() || 'General',
+        color: newRoleColor,
+      })
+      success('Rol Creado', `El cargo "${newRoleName}" fue registrado exitosamente.`)
+      setNewRoleName('')
+      setNewRoleDesc('')
+      setNewRoleDept('General')
+      setShowCreateRoleModal(false)
+    } catch (err: any) {
+      error('Error al Crear Rol', err.message)
+    } finally {
+      setCreatingRole(false)
+    }
+  }
+
+  const handleDeleteRole = async (id: string, name: string) => {
+    if (!confirm(`¿Deseas eliminar el rol "${name}"?`)) return
+    try {
+      await deleteRole(id)
+      info('Rol Eliminado', `El rol "${name}" ha sido eliminado.`)
+    } catch (err: any) {
+      error('Error al Eliminar', err.message)
+    }
+  }
+
   // --- EMAIL SETTINGS HANDLERS ---
   const handleSaveEmailSettings = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -258,6 +306,7 @@ export default function AdminControlPanel() {
           smtp_host: smtpHost,
           smtp_port: smtpPort,
           smtp_user: smtpUser.trim(),
+          smtp_pass: smtpPass,
           sender_name: senderName.trim(),
           sender_email: senderEmail.trim() || smtpUser.trim(),
           test_recipient: testRecipient.trim() || smtpUser.trim(),
@@ -290,6 +339,13 @@ export default function AdminControlPanel() {
     }
   }
 
+  // Auto-select first role if newUserRole is empty
+  useEffect(() => {
+    if (roles.length > 0 && !newUserRole) {
+      setNewUserRole(roles[0].name)
+    }
+  }, [roles, newUserRole])
+
   const filteredUsers = users.filter((u) => {
     if (!userSearch.trim()) return true
     const q = userSearch.toLowerCase()
@@ -297,6 +353,16 @@ export default function AdminControlPanel() {
       u.name.toLowerCase().includes(q) ||
       u.email.toLowerCase().includes(q) ||
       u.role.toLowerCase().includes(q)
+    )
+  })
+
+  const filteredRoles = roles.filter((r) => {
+    if (!roleSearch.trim()) return true
+    const q = roleSearch.toLowerCase()
+    return (
+      r.name.toLowerCase().includes(q) ||
+      (r.description && r.description.toLowerCase().includes(q)) ||
+      (r.department && r.department.toLowerCase().includes(q))
     )
   })
 
@@ -349,6 +415,21 @@ export default function AdminControlPanel() {
           <span>Tipos de Secciones</span>
           <span className="font-mono text-[10px] px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground font-semibold">
             {sections.length}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('roles')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition ${
+            activeTab === 'roles'
+              ? 'border-cyan-500 text-cyan-600 dark:text-cyan-400'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <Briefcase className="size-4" />
+          <span>Roles y Cargos</span>
+          <span className="font-mono text-[10px] px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground font-semibold">
+            {roles.length}
           </span>
         </button>
 
@@ -520,6 +601,106 @@ export default function AdminControlPanel() {
                 </div>
               )
             })}
+          </div>
+        </div>
+      )}
+
+      {/* TAB: ROLES Y CARGOS */}
+      {activeTab === 'roles' && (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-xs w-full max-w-sm">
+              <Search className="size-4 text-muted-foreground" />
+              <input
+                type="text"
+                value={roleSearch}
+                onChange={(e) => setRoleSearch(e.target.value)}
+                placeholder="Buscar roles o cargos por nombre o departamento..."
+                className="w-full bg-transparent outline-none text-foreground"
+              />
+            </div>
+
+            <button
+              onClick={() => setShowCreateRoleModal(true)}
+              className="quantum-gradient-btn flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold text-white shadow-md cursor-pointer"
+            >
+              <Plus className="size-4 stroke-[2.5]" />
+              <span>Crear Nuevo Rol / Cargo</span>
+            </button>
+          </div>
+
+          {/* Roles Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredRoles.length === 0 ? (
+              <div className="col-span-full p-8 text-center text-muted-foreground border border-dashed border-border rounded-2xl">
+                No se encontraron roles o cargos registrados.
+              </div>
+            ) : (
+              filteredRoles.map((r) => {
+                const assignedCount = users.filter((u) => u.role === r.name).length
+                const colorMap: Record<string, string> = {
+                  cyan: 'bg-cyan-500/10 border-cyan-500/30 text-cyan-600 dark:text-cyan-400',
+                  blue: 'bg-blue-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400',
+                  emerald: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400',
+                  purple: 'bg-purple-500/10 border-purple-500/30 text-purple-600 dark:text-purple-400',
+                  amber: 'bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400',
+                  rose: 'bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-400',
+                }
+                const dotColorMap: Record<string, string> = {
+                  cyan: 'bg-cyan-500',
+                  blue: 'bg-blue-500',
+                  emerald: 'bg-emerald-500',
+                  purple: 'bg-purple-500',
+                  amber: 'bg-amber-500',
+                  rose: 'bg-rose-500',
+                }
+
+                return (
+                  <div
+                    key={r.id}
+                    className="rounded-2xl border border-border/80 bg-card p-5 shadow-sm space-y-3 flex flex-col justify-between hover:border-cyan-500/50 transition group"
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className={`size-3 rounded-full shrink-0 ${dotColorMap[r.color] || 'bg-cyan-500'}`} />
+                          <h3 className="text-sm font-bold text-foreground truncate group-hover:text-cyan-500 transition">
+                            {r.name}
+                          </h3>
+                        </div>
+                        <button
+                          onClick={() => handleDeleteRole(r.id, r.name)}
+                          className="rounded-lg p-1.5 text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 transition shrink-0"
+                          title="Eliminar Rol"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-[10px] px-2 py-0.5 rounded-md bg-secondary text-secondary-foreground font-semibold border border-border">
+                          {r.department || 'General'}
+                        </span>
+                        <span className="font-mono text-[10px] text-muted-foreground">
+                          {assignedCount} usuario(s)
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        {r.description || 'Sin descripción de funciones asignada.'}
+                      </p>
+                    </div>
+
+                    <div className="pt-2 border-t border-border/50 flex items-center justify-between text-[10px] font-mono text-muted-foreground">
+                      <span>ID: {r.id}</span>
+                      <span className={`px-2 py-0.5 rounded border text-[9px] font-semibold uppercase ${colorMap[r.color] || colorMap.cyan}`}>
+                        {r.color}
+                      </span>
+                    </div>
+                  </div>
+                )
+              })
+            )}
           </div>
         </div>
       )}
@@ -849,11 +1030,21 @@ export default function AdminControlPanel() {
                   onChange={(e) => setNewUserRole(e.target.value)}
                   className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground outline-none focus:border-cyan-500 font-medium"
                 >
-                  <option value="Soporte TI">Soporte TI (Nivel 1)</option>
-                  <option value="DevOps Lead">DevOps Lead / Infraestructura</option>
-                  <option value="Operador NOC">Operador NOC / Monitoreo</option>
-                  <option value="Administrador">Administrador del Sistema</option>
-                  <option value="Seguridad TI">Especialista en Seguridad</option>
+                  {roles.length === 0 ? (
+                    <>
+                      <option value="Soporte TI">Soporte TI (Nivel 1)</option>
+                      <option value="DevOps Lead">DevOps Lead / Infraestructura</option>
+                      <option value="Operador NOC">Operador NOC / Monitoreo</option>
+                      <option value="Administrador">Administrador del Sistema</option>
+                      <option value="Seguridad TI">Especialista en Seguridad</option>
+                    </>
+                  ) : (
+                    roles.map((r) => (
+                      <option key={r.id} value={r.name}>
+                        {r.name} {r.department ? `· ${r.department}` : ''}
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
 
@@ -973,6 +1164,122 @@ export default function AdminControlPanel() {
                 >
                   {creatingSection && <Loader2 className="size-3.5 animate-spin" />}
                   <span>Crear Sección</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* CREATE ROLE / CARGO MODAL */}
+      {showCreateRoleModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="relative w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h3 className="font-bold text-foreground text-sm flex items-center gap-2">
+                <Briefcase className="size-4 text-cyan-500" />
+                <span>Crear Nuevo Rol / Cargo</span>
+              </h3>
+              <button
+                onClick={() => setShowCreateRoleModal(false)}
+                className="text-muted-foreground hover:text-foreground text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateRole} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-muted-foreground">Nombre del Rol / Cargo *</label>
+                <input
+                  type="text"
+                  required
+                  value={newRoleName}
+                  onChange={(e) => setNewRoleName(e.target.value)}
+                  placeholder="Ej: Administrador de Redes, Coordinador TI, SRE Senior"
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground outline-none focus:border-cyan-500 font-medium"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-muted-foreground">Departamento / Sección Asociada</label>
+                <select
+                  value={newRoleDept}
+                  onChange={(e) => setNewRoleDept(e.target.value)}
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground outline-none focus:border-cyan-500 font-medium"
+                >
+                  <option value="General">General (Toda la Organización)</option>
+                  {sections.map((s) => (
+                    <option key={s.id} value={s.name}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-muted-foreground">Descripción / Responsabilidades</label>
+                <textarea
+                  rows={3}
+                  value={newRoleDesc}
+                  onChange={(e) => setNewRoleDesc(e.target.value)}
+                  placeholder="Describe las funciones, nivel de acceso o responsabilidades del cargo..."
+                  className="w-full rounded-xl border border-border bg-background p-3 text-xs text-foreground outline-none focus:border-cyan-500 resize-none font-normal"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-muted-foreground">Color Identificativo</label>
+                <div className="flex items-center gap-2.5">
+                  {['cyan', 'blue', 'emerald', 'purple', 'amber', 'rose'].map((c) => {
+                    const bgColors: Record<string, string> = {
+                      cyan: 'bg-cyan-500',
+                      blue: 'bg-blue-500',
+                      emerald: 'bg-emerald-500',
+                      purple: 'bg-purple-500',
+                      amber: 'bg-amber-500',
+                      rose: 'bg-rose-500',
+                    }
+                    return (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setNewRoleColor(c)}
+                        className={`size-6 rounded-full ${bgColors[c]} transition flex items-center justify-center ${
+                          newRoleColor === c ? 'ring-4 ring-cyan-500/30 scale-110' : 'opacity-70 hover:opacity-100'
+                        }`}
+                      >
+                        {newRoleColor === c && <Check className="size-3 text-white stroke-[3]" />}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div className="pt-3 flex items-center justify-end gap-2 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateRoleModal(false)}
+                  className="px-4 py-2 rounded-xl border border-border text-xs font-medium text-foreground hover:bg-muted transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={creatingRole}
+                  className="quantum-gradient-btn flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold text-white shadow transition cursor-pointer disabled:opacity-50"
+                >
+                  {creatingRole ? (
+                    <>
+                      <Loader2 className="size-3.5 animate-spin" />
+                      <span>Guardando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="size-3.5" />
+                      <span>Guardar Cargo</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>

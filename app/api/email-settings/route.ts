@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db, initDatabase } from '@/lib/db'
+import { sendSmtpEmail } from '@/lib/smtp-client'
 
 export async function GET() {
   try {
@@ -53,36 +54,93 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { action, provider, smtp_host, smtp_port, smtp_user, smtp_pass, sender_name, sender_email, test_recipient } = body
 
+    // Check existing stored password
+    const existing = await db.execute("SELECT id, smtp_pass FROM email_settings WHERE id = 'default' LIMIT 1")
+    const storedPass = (existing.rows[0]?.smtp_pass as string) || ''
+    const effectivePass = (smtp_pass !== undefined && smtp_pass.trim() !== '') ? smtp_pass.trim() : storedPass
+
     if (action === 'test') {
-      // Simulate/validate SMTP connection test with the provider
-      const targetRecipient = test_recipient || sender_email || smtp_user || 'admin@nexus.internal'
+      const targetRecipient = test_recipient || sender_email || smtp_user
       
       if (!smtp_user) {
         return NextResponse.json({
           success: false,
-          error: 'Debes configurar al menos la dirección de correo o usuario antes de probar la conexión.'
+          error: 'Debes configurar la dirección de correo o usuario antes de probar la conexión.'
         }, { status: 400 })
       }
 
-      // Successful test simulation with provider metadata
+      if (!effectivePass) {
+        return NextResponse.json({
+          success: false,
+          error: 'Debes ingresar o haber guardado la Contraseña de Aplicación de 16 caracteres de Google para probar el envío.'
+        }, { status: 400 })
+      }
+
+      const host = smtp_host || (provider === 'gmail' ? 'smtp.gmail.com' : 'smtp.office365.com')
+      const port = Number(smtp_port) || 587
+      const fromAddr = sender_email || smtp_user
+      const fromDisplay = sender_name || 'Nexus Soporte TI'
+
+      const testHtml = `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background: #ffffff;">
+          <div style="background: linear-gradient(135deg, #0284c7, #06b6d4); padding: 20px; border-radius: 12px; color: #ffffff; text-align: center;">
+            <h2 style="margin: 0; font-size: 22px; font-weight: 700;">Nexus Soporte TI</h2>
+            <p style="margin: 6px 0 0; opacity: 0.9; font-size: 14px;">Correo de Verificación SMTP</p>
+          </div>
+          <div style="padding: 24px 8px; color: #1e293b; line-height: 1.6;">
+            <p style="font-size: 16px; font-weight: 600; color: #0f172a;">¡Hola!</p>
+            <p>Este correo confirma que tu servidor SMTP de <strong>${provider === 'gmail' ? 'Google Gmail' : 'tu proveedor'}</strong> está correctamente enlazado con la plataforma <strong>Nexus</strong>.</p>
+            <div style="background: #f8fafc; border-left: 4px solid #0284c7; padding: 14px 18px; margin: 20px 0; border-radius: 6px; font-size: 13px; color: #334155; font-family: monospace;">
+              <strong>Detalles técnicos:</strong><br>
+              • Servidor: ${host}:${port}<br>
+              • Cuenta Autenticada: ${smtp_user}<br>
+              • Remitente: ${fromDisplay} &lt;${fromAddr}&gt;<br>
+              • Destinatario: ${targetRecipient}<br>
+              • Fecha y Hora: ${new Date().toLocaleString()}
+            </div>
+            <p style="font-size: 13px; color: #64748b;">A partir de este momento, todos los tickets, alertas y comunicaciones de los usuarios podrán ser despachados en tiempo real mediante esta cuenta.</p>
+          </div>
+          <div style="border-top: 1px solid #e2e8f0; padding-top: 16px; font-size: 11px; color: #94a3b8; text-align: center;">
+            Enviado de forma segura desde el motor de notificaciones de Nexus Incident Response.
+          </div>
+        </div>
+      `
+
+      const smtpResult = await sendSmtpEmail({
+        host,
+        port,
+        user: smtp_user,
+        pass: effectivePass,
+        from: fromAddr,
+        fromName: fromDisplay,
+        to: targetRecipient,
+        subject: '✅ Nexus TI - Verificación de Conexión de Correo Exitosa',
+        html: testHtml,
+        text: `Nexus Soporte TI: Correo de verificación exitoso para ${targetRecipient} enviado desde ${host}:${port} a las ${new Date().toLocaleString()}`,
+      })
+
+      if (!smtpResult.success) {
+        return NextResponse.json({
+          success: false,
+          error: smtpResult.message,
+        }, { status: 400 })
+      }
+
       return NextResponse.json({
         success: true,
-        message: `¡Conexión exitosa con ${provider === 'gmail' ? 'Google SMTP' : provider === 'outlook' ? 'Microsoft Outlook 365' : 'Servidor SMTP'}! Correo de verificación enviado satisfactoriamente a ${targetRecipient}.`,
+        message: `¡Correo de verificación REAL enviado a ${targetRecipient}! Revisa tu bandeja de entrada.`,
         details: {
-          host: smtp_host || (provider === 'gmail' ? 'smtp.gmail.com' : 'smtp.office365.com'),
-          port: smtp_port || 587,
-          security: 'TLS / STARTTLS',
-          latency: `${Math.floor(45 + Math.random() * 40)}ms`,
+          host,
+          port,
+          security: port === 465 ? 'SSL' : 'STARTTLS',
+          recipient: targetRecipient,
           timestamp: new Date().toLocaleTimeString(),
         }
       })
     }
 
     // Save settings
-    const existing = await db.execute("SELECT id, smtp_pass FROM email_settings WHERE id = 'default' LIMIT 1")
-    const currentPass = existing.rows[0]?.smtp_pass || ''
-
-    const passwordToStore = smtp_pass !== undefined && smtp_pass !== '' ? smtp_pass : currentPass
+    const passwordToStore = smtp_pass !== undefined && smtp_pass.trim() !== '' ? smtp_pass.trim() : storedPass
 
     await db.execute({
       sql: `INSERT OR REPLACE INTO email_settings (id, provider, smtp_host, smtp_port, smtp_user, smtp_pass, sender_name, sender_email, is_active, updated_at)
@@ -104,7 +162,7 @@ export async function POST(request: Request) {
       message: 'Configuración de correo guardada con éxito.',
     })
   } catch (error: any) {
-    console.error('Error saving email settings:', error)
+    console.error('Error in email settings:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

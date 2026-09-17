@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { useNexusData, Priority } from '@/lib/data-context'
 import { useToast } from '@/components/nexus/toast-provider'
+import { FileAttachmentZone, StagedFile } from '@/components/nexus/file-attachment-zone'
 
 export default function NewTicketPage() {
   const router = useRouter()
@@ -30,6 +31,7 @@ export default function NewTicketPage() {
   const [priority, setPriority] = useState<Priority>('Medium')
   const [environment, setEnvironment] = useState<'Production' | 'Staging' | 'Edge'>('Production')
   const [description, setDescription] = useState('')
+  const [stagedFiles, setStagedFiles] = useState<StagedFile[]>([])
   const [loading, setLoading] = useState(false)
 
   // Pre-select first section if available
@@ -78,7 +80,22 @@ export default function NewTicketPage() {
         createdTime: 'Justo ahora',
       })
 
-      success('Ticket Creado con Éxito', `Ticket ${ticketId} registrado en el sistema.`)
+      // If user selected files to attach, upload them now
+      if (stagedFiles.length > 0) {
+        const formData = new FormData()
+        formData.append('incidentId', ticketId)
+        formData.append('uploadedBy', 'Operador en Línea')
+        stagedFiles.forEach((f) => {
+          formData.append('files', f.file)
+        })
+
+        await fetch('/api/attachments', {
+          method: 'POST',
+          body: formData,
+        })
+      }
+
+      success('Ticket Creado con Éxito', `Ticket ${ticketId} registrado con ${stagedFiles.length} adjunto(s).`)
       router.push('/kanban')
     } catch (err: any) {
       console.error(err)
@@ -255,6 +272,16 @@ export default function NewTicketPage() {
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Detalla qué está ocurriendo, pasos para reproducirlo, clientes afectados..."
             className="w-full rounded-xl border border-border bg-background/80 p-3.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition resize-y font-normal"
+          />
+        </div>
+
+        {/* Universal File Attachments Zone */}
+        <div className="pt-2">
+          <FileAttachmentZone
+            stagedFiles={stagedFiles}
+            onStagedFilesChange={setStagedFiles}
+            title="Adjuntar Archivos al Ticket"
+            description="Puedes adjuntar archivos de todo tipo: capturas de pantalla, archivos de log, volcados de memoria (.dmp), documentos PDF/Word, archivos ZIP o scripts de código."
           />
         </div>
 

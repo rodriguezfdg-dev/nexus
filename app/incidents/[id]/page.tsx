@@ -10,8 +10,11 @@ import {
   IncidentStatus,
   macroTemplates,
   TimelineEvent,
-  Priority
+  Priority,
+  TicketAttachment,
 } from '@/lib/mock-incidents'
+import { FileAttachmentZone } from '@/components/nexus/file-attachment-zone'
+import { useNexusData } from '@/lib/data-context'
 import {
   ArrowLeft,
   Clock,
@@ -34,7 +37,10 @@ import {
   ChevronDown,
   Layers,
   Zap,
-  Info
+  Info,
+  Pencil,
+  Trash2,
+  Loader2,
 } from 'lucide-react'
 
 export default function IncidentDetailPage({
@@ -71,6 +77,22 @@ export default function IncidentDetailPage({
   const [showCloseConfirm, setShowCloseConfirm] = useState(false)
   const [feedbackToast, setFeedbackToast] = useState<string | null>(null)
 
+  const { sections, usersList, deleteIncident, refresh: refreshData } = useNexusData()
+
+  // Edit ticket state
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editTitle, setEditTitle] = useState('')
+  const [editPriority, setEditPriority] = useState<Priority>('Medium')
+  const [editStatus, setEditStatus] = useState<IncidentStatus>('Open')
+  const [editService, setEditService] = useState('')
+  const [editEnv, setEditEnv] = useState<'Production' | 'Staging' | 'Edge'>('Production')
+  const [editAssigneeName, setEditAssigneeName] = useState('')
+  const [isSavingEdit, setIsSavingEdit] = useState(false)
+
+  // Delete ticket state
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+
   // Synchronize when rawId changes from SQLite or fallback
   useEffect(() => {
     let isMounted = true
@@ -79,8 +101,19 @@ export default function IncidentDetailPage({
         const res = await fetch(`/api/incidents/${encodeURIComponent(rawId)}`)
         if (res.ok) {
           const data = await res.json()
+          let atts = data.attachments || []
+          try {
+            const attRes = await fetch(`/api/attachments?incidentId=${encodeURIComponent(rawId)}`)
+            if (attRes.ok) {
+              const freshAtts = await attRes.json()
+              if (Array.isArray(freshAtts) && freshAtts.length > 0) {
+                atts = freshAtts
+              }
+            }
+          } catch {}
+
           if (isMounted) {
-            setIncident(data)
+            setIncident({ ...data, attachments: atts })
             setCurrentStatus(data.status)
             setSlaRemaining(data.slaSecondsRemaining)
             return
@@ -101,6 +134,126 @@ export default function IncidentDetailPage({
       isMounted = false
     }
   }, [rawId])
+
+  const handleAttachmentUploaded = (att: TicketAttachment) => {
+    setIncident((prev) => ({
+      ...prev,
+      attachments: [...(prev.attachments || []), att],
+    }))
+    showToast(`Archivo adjunto subido: ${att.filename}`)
+  }
+
+  const handleAttachmentDeleted = (id: string) => {
+    setIncident((prev) => ({
+      ...prev,
+      attachments: (prev.attachments || []).filter((a) => a.id !== id),
+    }))
+    showToast('Archivo adjunto eliminado')
+  }
+
+  // --- EDIT TICKET HANDLERS ---
+  const openEditModal = () => {
+    setEditTitle(incident.title)
+    setEditPriority(incident.priority)
+    setEditStatus(currentStatus)
+    setEditService(incident.service)
+    setEditEnv(incident.env)
+    setEditAssigneeName(incident.assignee.name)
+    setShowEditModal(true)
+  }
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editTitle.trim()) {
+      showToast('El título del ticket no puede estar vacío')
+      return
+    }
+
+    setIsSavingEdit(true)
+    try {
+      const selectedUser = usersList.find((u) => u.name === editAssigneeName)
+      const initials = editAssigneeName
+        ? editAssigneeName
+            .split(' ')
+            .map((p) => p[0])
+            .join('')
+            .slice(0, 2)
+            .toUpperCase()
+        : 'UN'
+
+      const payload = {
+        id: incident.id,
+        title: editTitle.trim(),
+        priority: editPriority,
+        status: editStatus,
+        service: editService.trim() || 'Core-Platform',
+        env: editEnv,
+        tag: editService.trim() || 'General',
+        assignee: {
+          name: editAssigneeName.trim() || 'Sin Asignar',
+          initials,
+          status: 'online' as const,
+        },
+      }
+
+      const res = await fetch(`/api/incidents/${encodeURIComponent(rawId)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+
+      if (!res.ok) {
+        throw new Error('Fallo al actualizar el ticket en el servidor')
+      }
+
+      // Update state locally
+      setIncident((prev) => ({
+        ...prev,
+        title: editTitle.trim(),
+        priority: editPriority,
+        status: editStatus,
+        service: (editService.trim() || 'Core-Platform') as any,
+        env: editEnv,
+        tag: editService.trim() || 'General',
+        assignee: {
+          name: editAssigneeName.trim() || 'Sin Asignar',
+          initials,
+          status: 'online',
+        },
+      }))
+      setCurrentStatus(editStatus)
+
+      setShowEditModal(false)
+      showToast('Ticket actualizado exitosamente')
+      refreshData()
+    } catch (err: any) {
+      console.error(err)
+      showToast(`Error al guardar: ${err.message}`)
+    } finally {
+      setIsSavingEdit(false)
+    }
+  }
+
+  // --- DELETE TICKET HANDLERS ---
+  const handleConfirmDelete = async () => {
+    setIsDeleting(true)
+    try {
+      const res = await fetch(`/api/incidents/${encodeURIComponent(rawId)}`, {
+        method: 'DELETE',
+      })
+      if (!res.ok) {
+        throw new Error('No se pudo eliminar el ticket del servidor')
+      }
+
+      await deleteIncident(incident.id)
+      showToast(`Ticket ${incident.id} eliminado definitivamente`)
+      router.push('/kanban')
+    } catch (err: any) {
+      console.error(err)
+      showToast(`Error al eliminar ticket: ${err.message}`)
+      setIsDeleting(false)
+    }
+  }
 
   // SLA Live Countdown
   useEffect(() => {
@@ -325,54 +478,77 @@ export default function IncidentDetailPage({
           </nav>
         </div>
 
-        {/* Status Switcher Pills with Animated Framer Motion LayoutId */}
-        <div className="flex items-center gap-1 rounded-xl border border-border bg-card/70 p-1 backdrop-blur-md shadow-sm">
-          {(['Open', 'In Progress', 'Blocked', 'Resolved'] as IncidentStatus[]).map((status) => {
-            const isActive = currentStatus === status
+        {/* Right Actions: Status Switcher + Edit + Delete Buttons */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Status Switcher Pills with Animated Framer Motion LayoutId */}
+          <div className="flex items-center gap-1 rounded-xl border border-border bg-card/70 p-1 backdrop-blur-md shadow-sm">
+            {(['Open', 'In Progress', 'Blocked', 'Resolved'] as IncidentStatus[]).map((status) => {
+              const isActive = currentStatus === status
 
-            // Status color mappings
-            const statusStyles = {
-              Open: 'text-amber-600 dark:text-amber-400 border-amber-500/30',
-              'In Progress': 'text-cyan-600 dark:text-cyan-300 border-cyan-500/30',
-              Blocked: 'text-rose-600 dark:text-rose-400 border-rose-500/30',
-              Resolved: 'text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
-            }
+              // Status color mappings
+              const statusStyles = {
+                Open: 'text-amber-600 dark:text-amber-400 border-amber-500/30',
+                'In Progress': 'text-cyan-600 dark:text-cyan-300 border-cyan-500/30',
+                Blocked: 'text-rose-600 dark:text-rose-400 border-rose-500/30',
+                Resolved: 'text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
+              }
 
-            return (
-              <button
-                key={status}
-                onClick={() => {
-                  setCurrentStatus(status)
-                  showToast(`Status shifted to ${status}`)
-                }}
-                className={`relative px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors duration-200 ${
-                  isActive ? `${statusStyles[status]} font-bold` : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {isActive && (
-                  <motion.div
-                    layoutId="statusPillBg"
-                    className="absolute inset-0 rounded-lg bg-secondary border border-border shadow-sm"
-                    transition={{ type: 'spring', bounce: 0.18, duration: 0.35 }}
-                  />
-                )}
-                <span className="relative z-10 flex items-center gap-1.5">
-                  <span
-                    className={`size-1.5 rounded-full ${
-                      status === 'Open'
-                        ? 'bg-amber-500'
-                        : status === 'In Progress'
-                        ? 'bg-cyan-500 animate-pulse'
-                        : status === 'Blocked'
-                        ? 'bg-rose-500'
-                        : 'bg-emerald-500'
-                    }`}
-                  />
-                  {status}
-                </span>
-              </button>
-            )
-          })}
+              return (
+                <button
+                  key={status}
+                  onClick={() => {
+                    setCurrentStatus(status)
+                    showToast(`Status shifted to ${status}`)
+                  }}
+                  className={`relative px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors duration-200 ${
+                    isActive ? `${statusStyles[status]} font-bold` : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {isActive && (
+                    <motion.div
+                      layoutId="statusPillBg"
+                      className="absolute inset-0 rounded-lg bg-secondary border border-border shadow-sm"
+                      transition={{ type: 'spring', bounce: 0.18, duration: 0.35 }}
+                    />
+                  )}
+                  <span className="relative z-10 flex items-center gap-1.5">
+                    <span
+                      className={`size-1.5 rounded-full ${
+                        status === 'Open'
+                          ? 'bg-amber-500'
+                          : status === 'In Progress'
+                          ? 'bg-cyan-500 animate-pulse'
+                          : status === 'Blocked'
+                          ? 'bg-rose-500'
+                          : 'bg-emerald-500'
+                      }`}
+                    />
+                    {status}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Edit Ticket Button */}
+          <button
+            onClick={openEditModal}
+            className="flex items-center gap-1.5 rounded-xl border border-cyan-500/40 bg-cyan-500/10 px-3 py-1.5 text-xs font-bold text-cyan-700 dark:text-cyan-300 hover:bg-cyan-500/20 transition shadow-sm cursor-pointer"
+            title="Editar información del ticket"
+          >
+            <Pencil className="size-3.5" />
+            <span>Editar</span>
+          </button>
+
+          {/* Delete Ticket Button */}
+          <button
+            onClick={() => setShowDeleteModal(true)}
+            className="flex items-center gap-1.5 rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-1.5 text-xs font-bold text-rose-700 dark:text-rose-400 hover:bg-rose-500/20 transition shadow-sm cursor-pointer"
+            title="Borrar este ticket"
+          >
+            <Trash2 className="size-3.5" />
+            <span>Borrar</span>
+          </button>
         </div>
       </div>
 
@@ -684,6 +860,18 @@ export default function IncidentDetailPage({
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Universal Ticket Attachments Card */}
+      <div className="nexus-glass-card rounded-2xl p-6 border-cyan-500/20 shadow-lg">
+        <FileAttachmentZone
+          incidentId={incident.id}
+          existingAttachments={incident.attachments || []}
+          onAttachmentUploaded={handleAttachmentUploaded}
+          onAttachmentDeleted={handleAttachmentDeleted}
+          title="Archivos Adjuntos del Ticket"
+          description="Soporta cualquier tipo de archivo (logs, volcados .dmp, imágenes, PDFs, código, comprimidos ZIP/TAR, etc.). Arrastra aquí o haz clic para subir de inmediato."
+        />
       </div>
 
       {/* Activity Timeline / Comms Feed */}
@@ -1004,6 +1192,238 @@ export default function IncidentDetailPage({
                   className="rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-emerald-600/30 transition"
                 >
                   Confirm & Close
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Edit Ticket Modal */}
+      <AnimatePresence>
+        {showEditModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="nexus-glass-card rounded-2xl border border-border/80 bg-card p-6 shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto space-y-5"
+            >
+              <div className="flex items-center justify-between border-b border-border/60 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="size-9 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-600 dark:text-cyan-400">
+                    <Pencil className="size-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-foreground">Editar Ticket</h3>
+                    <p className="text-xs text-muted-foreground">Modifica los detalles del ticket <span className="font-mono text-cyan-600 dark:text-cyan-400 font-semibold">{incident.id}</span></p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowEditModal(false)}
+                  className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveEdit} className="space-y-4 text-xs">
+                <div>
+                  <label className="block text-[11px] font-semibold text-muted-foreground mb-1">
+                    Título del Ticket *
+                  </label>
+                  <input
+                    type="text"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    required
+                    placeholder="Ej. Interrupción de servicio en módulo de pagos..."
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-muted-foreground mb-1">
+                      Prioridad
+                    </label>
+                    <select
+                      value={editPriority}
+                      onChange={(e) => setEditPriority(e.target.value as Priority)}
+                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500"
+                    >
+                      <option value="Critical">Critical (P1)</option>
+                      <option value="High">High (P2)</option>
+                      <option value="Medium">Medium (P3)</option>
+                      <option value="Low">Low (P4)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-muted-foreground mb-1">
+                      Estado
+                    </label>
+                    <select
+                      value={editStatus}
+                      onChange={(e) => setEditStatus(e.target.value as IncidentStatus)}
+                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500"
+                    >
+                      <option value="Open">Open</option>
+                      <option value="In Progress">In Progress</option>
+                      <option value="Blocked">Blocked</option>
+                      <option value="Resolved">Resolved</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-muted-foreground mb-1">
+                      Servicio / Sección
+                    </label>
+                    <select
+                      value={editService}
+                      onChange={(e) => setEditService(e.target.value)}
+                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500"
+                    >
+                      {sections.map((sec) => (
+                        <option key={sec.id} value={sec.name}>
+                          {sec.name}
+                        </option>
+                      ))}
+                      {!sections.some((s) => s.name === editService) && editService && (
+                        <option value={editService}>{editService}</option>
+                      )}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-muted-foreground mb-1">
+                      Entorno
+                    </label>
+                    <select
+                      value={editEnv}
+                      onChange={(e) => setEditEnv(e.target.value as any)}
+                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500"
+                    >
+                      <option value="Production">Production</option>
+                      <option value="Staging">Staging</option>
+                      <option value="Edge">Edge</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-muted-foreground mb-1">
+                    Responsable Asignado
+                  </label>
+                  <select
+                    value={editAssigneeName}
+                    onChange={(e) => setEditAssigneeName(e.target.value)}
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500"
+                  >
+                    <option value="">Sin Asignar</option>
+                    {usersList.map((u) => (
+                      <option key={u.id} value={u.name}>
+                        {u.name} ({u.role})
+                      </option>
+                    ))}
+                    {!usersList.some((u) => u.name === editAssigneeName) && editAssigneeName && (
+                      <option value={editAssigneeName}>{editAssigneeName}</option>
+                    )}
+                  </select>
+                </div>
+
+                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-border/60">
+                  <button
+                    type="button"
+                    onClick={() => setShowEditModal(false)}
+                    className="rounded-xl border border-border px-4 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-secondary transition"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSavingEdit}
+                    className="flex items-center gap-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-cyan-600/30 transition disabled:opacity-50"
+                  >
+                    {isSavingEdit ? (
+                      <>
+                        <Loader2 className="size-3.5 animate-spin" />
+                        <span>Guardando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="size-3.5" />
+                        <span>Guardar Cambios</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Ticket Confirmation Modal */}
+      <AnimatePresence>
+        {showDeleteModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="nexus-glass-card rounded-2xl border border-rose-500/40 bg-card p-6 shadow-2xl w-full max-w-md space-y-4"
+            >
+              <div className="flex items-center gap-3">
+                <div className="size-10 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-600 dark:text-rose-400 shrink-0">
+                  <Trash2 className="size-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-foreground">Eliminar Ticket Definitivamente</h3>
+                  <p className="text-xs text-muted-foreground">Esta acción no se puede deshacer</p>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 p-3 text-xs text-foreground/90 space-y-1.5 leading-relaxed">
+                <p>
+                  ¿Confirmas que deseas eliminar el ticket <strong className="font-mono text-rose-600 dark:text-rose-400">{incident.id}</strong>?
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  Título: <span className="font-medium text-foreground italic">&ldquo;{incident.title}&rdquo;</span>
+                </p>
+                <p className="text-[11px] text-rose-600 dark:text-rose-400 font-medium">
+                  • Se borrarán permanentemente todos los registros y archivos adjuntos asociados.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteModal(false)}
+                  disabled={isDeleting}
+                  className="rounded-xl border border-border px-4 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-secondary transition disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDelete}
+                  disabled={isDeleting}
+                  className="flex items-center gap-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-rose-600/30 transition disabled:opacity-50"
+                >
+                  {isDeleting ? (
+                    <>
+                      <Loader2 className="size-3.5 animate-spin" />
+                      <span>Eliminando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="size-3.5" />
+                      <span>Sí, eliminar ticket</span>
+                    </>
+                  )}
                 </button>
               </div>
             </motion.div>

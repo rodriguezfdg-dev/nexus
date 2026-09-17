@@ -30,6 +30,7 @@ export async function GET() {
       createdTime: row.created_time,
       aiCopilot: row.ai_copilot_json ? JSON.parse(row.ai_copilot_json) : null,
       timeline: row.timeline_json ? JSON.parse(row.timeline_json) : [],
+      attachments: row.attachments_json ? JSON.parse(row.attachments_json) : [],
     }))
 
     return NextResponse.json(incidents)
@@ -93,6 +94,7 @@ export async function POST(request: Request) {
       },
     ]
     const timelineJson = JSON.stringify(body.timeline || defaultTimeline)
+    const attachmentsJson = JSON.stringify(body.attachments || [])
 
     await db.execute({
       sql: `INSERT INTO incidents (
@@ -101,15 +103,15 @@ export async function POST(request: Request) {
         reporter_name, reporter_email, reporter_org,
         sla_seconds_total, sla_seconds_remaining,
         ai_triaged, assigned_to_me, tag, created_time,
-        ai_copilot_json, timeline_json
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ai_copilot_json, timeline_json, attachments_json
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         id, title, priority, status, service, env,
         assigneeName, assigneeInitials, assigneeStatus,
         reporterName, reporterEmail, reporterOrg,
         slaSecondsTotal, slaSecondsRemaining,
         aiTriaged, assignedToMe, tag, createdTime,
-        aiCopilotJson, timelineJson,
+        aiCopilotJson, timelineJson, attachmentsJson,
       ],
     })
 
@@ -144,7 +146,7 @@ export async function PUT(request: Request) {
   try {
     await initDatabase()
     const body = await request.json()
-    const { id, status, priority, assignedToMe, assignee } = body
+    const { id, title, status, priority, service, env, tag, assignedToMe, assignee } = body
 
     if (!id) {
       return NextResponse.json({ error: 'Missing incident id' }, { status: 400 })
@@ -153,6 +155,10 @@ export async function PUT(request: Request) {
     const updates: string[] = []
     const args: any[] = []
 
+    if (title !== undefined) {
+      updates.push('title = ?')
+      args.push(title)
+    }
     if (status !== undefined) {
       updates.push('status = ?')
       args.push(status)
@@ -161,19 +167,33 @@ export async function PUT(request: Request) {
       updates.push('priority = ?')
       args.push(priority)
     }
+    if (service !== undefined) {
+      updates.push('service = ?')
+      args.push(service)
+    }
+    if (env !== undefined) {
+      updates.push('env = ?')
+      args.push(env)
+    }
+    if (tag !== undefined) {
+      updates.push('tag = ?')
+      args.push(tag)
+    }
     if (assignedToMe !== undefined) {
       updates.push('assigned_to_me = ?')
       args.push(assignedToMe ? 1 : 0)
     }
     if (assignee?.name) {
       updates.push('assignee_name = ?, assignee_initials = ?, assignee_status = ?')
-      args.push(assignee.name, assignee.initials || 'ME', assignee.status || 'busy')
+      args.push(assignee.name, assignee.initials || 'UN', assignee.status || 'online')
     }
 
     if (updates.length > 0) {
-      args.push(id)
+      const cleanId = id.startsWith('#') ? id : `#${id}`
+      const rawId = cleanId.replace('#', '')
+      args.push(cleanId, rawId)
       await db.execute({
-        sql: `UPDATE incidents SET ${updates.join(', ')} WHERE id = ?`,
+        sql: `UPDATE incidents SET ${updates.join(', ')} WHERE id = ? OR id = ?`,
         args,
       })
     }
@@ -195,9 +215,17 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Missing incident id' }, { status: 400 })
     }
 
+    const cleanId = id.startsWith('#') ? id : `#${id}`
+    const rawId = cleanId.replace('#', '')
+
     await db.execute({
-      sql: 'DELETE FROM incidents WHERE id = ?',
-      args: [id],
+      sql: 'DELETE FROM incidents WHERE id = ? OR id = ?',
+      args: [cleanId, rawId],
+    })
+
+    await db.execute({
+      sql: 'DELETE FROM attachments WHERE incident_id = ? OR incident_id = ?',
+      args: [cleanId, rawId],
     })
 
     return NextResponse.json({ success: true })

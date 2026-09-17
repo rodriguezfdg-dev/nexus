@@ -32,6 +32,7 @@ interface ToastContextType {
   success: (title: string, description?: string, duration?: number) => string
   warning: (title: string, description?: string, duration?: number) => string
   critical: (title: string, description?: string, duration?: number) => string
+  error: (title: string, description?: string, duration?: number) => string
   info: (title: string, description?: string, duration?: number) => string
 }
 
@@ -96,6 +97,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         success,
         warning,
         critical,
+        error: critical,
         info,
       }}
     >

@@ -17,6 +17,17 @@ export interface Reporter {
   organization: string
 }
 
+export interface TicketAttachment {
+  id: string
+  incidentId: string
+  filename: string
+  fileSize: number
+  fileType: string
+  fileUrl: string
+  uploadedBy: string
+  createdAt: string
+}
+
 export interface Incident {
   id: string
   title: string
@@ -32,6 +43,7 @@ export interface Incident {
   assignedToMe: boolean
   tag: string
   createdTime: string
+  attachments?: TicketAttachment[]
   aiCopilot?: {
     summary: string
     rca: {
@@ -131,9 +143,19 @@ export interface UserItem {
   created_at?: string
 }
 
+export interface RoleItem {
+  id: string
+  name: string
+  description?: string
+  department?: string
+  color: string
+  created_at?: string
+}
+
 interface DataContextType {
   incidents: Incident[]
   sections: Section[]
+  roles: RoleItem[]
   usersList: UserItem[]
   teamMembers: TeamMember[]
   runbooks: Runbook[]
@@ -146,6 +168,8 @@ interface DataContextType {
   deleteIncident: (id: string) => Promise<void>
   createSection: (section: Partial<Section>) => Promise<void>
   deleteSection: (id: string) => Promise<void>
+  createRole: (role: Partial<RoleItem>) => Promise<void>
+  deleteRole: (id: string) => Promise<void>
   createTeamMember: (member: Partial<TeamMember>) => Promise<void>
   deleteTeamMember: (id: string) => Promise<void>
   createRunbook: (runbook: Partial<Runbook>) => Promise<void>
@@ -163,6 +187,7 @@ const DataContext = createContext<DataContextType | null>(null)
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const [incidents, setIncidents] = useState<Incident[]>([])
   const [sections, setSections] = useState<Section[]>([])
+  const [roles, setRoles] = useState<RoleItem[]>([])
   const [usersList, setUsersList] = useState<UserItem[]>([])
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
   const [runbooks, setRunbooks] = useState<Runbook[]>([])
@@ -172,7 +197,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const fetchAll = useCallback(async () => {
     try {
-      const [incRes, secRes, userRes, teamRes, rbRes, ruleRes, auditRes] = await Promise.all([
+      const [incRes, secRes, userRes, teamRes, rbRes, ruleRes, auditRes, roleRes] = await Promise.all([
         fetch('/api/incidents'),
         fetch('/api/sections'),
         fetch('/api/users'),
@@ -180,6 +205,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         fetch('/api/runbooks'),
         fetch('/api/automation-rules'),
         fetch('/api/audit-logs'),
+        fetch('/api/roles'),
       ])
 
       if (incRes.ok) setIncidents(await incRes.json())
@@ -189,6 +215,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       if (rbRes.ok) setRunbooks(await rbRes.json())
       if (ruleRes.ok) setAutomationRules(await ruleRes.json())
       if (auditRes.ok) setAuditLogs(await auditRes.json())
+      if (roleRes && roleRes.ok) setRoles(await roleRes.json())
     } catch (err) {
       console.error('Failed to load data from SQLite API:', err)
     } finally {
@@ -309,6 +336,20 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     await fetchAll()
   }
 
+  const createRole = async (role: Partial<RoleItem>) => {
+    await fetch('/api/roles', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(role),
+    })
+    await fetchAll()
+  }
+
+  const deleteRole = async (id: string) => {
+    await fetch(`/api/roles?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
+    await fetchAll()
+  }
+
   const clearAllData = async () => {
     await fetch('/api/migration', {
       method: 'POST',
@@ -332,6 +373,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       value={{
         incidents,
         sections,
+        roles,
         usersList,
         teamMembers,
         runbooks,
@@ -344,6 +386,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         deleteIncident,
         createSection,
         deleteSection,
+        createRole,
+        deleteRole,
         createTeamMember,
         deleteTeamMember,
         createRunbook,

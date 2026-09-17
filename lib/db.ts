@@ -46,7 +46,8 @@ export async function initDatabase() {
         tag TEXT NOT NULL DEFAULT 'General',
         created_time TEXT NOT NULL,
         ai_copilot_json TEXT,
-        timeline_json TEXT
+        timeline_json TEXT,
+        attachments_json TEXT
       );`,
       `CREATE TABLE IF NOT EXISTS team_members (
         id TEXT PRIMARY KEY,
@@ -122,10 +123,35 @@ export async function initDatabase() {
         sender_email TEXT,
         is_active INTEGER NOT NULL DEFAULT 1,
         updated_at TEXT NOT NULL
+      );`,
+      `CREATE TABLE IF NOT EXISTS attachments (
+        id TEXT PRIMARY KEY,
+        incident_id TEXT NOT NULL,
+        filename TEXT NOT NULL,
+        file_size INTEGER NOT NULL,
+        file_type TEXT NOT NULL,
+        file_url TEXT NOT NULL,
+        uploaded_by TEXT NOT NULL DEFAULT 'Operador',
+        created_at TEXT NOT NULL
+      );`,
+      `CREATE TABLE IF NOT EXISTS roles (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT,
+        department TEXT DEFAULT 'General',
+        color TEXT NOT NULL DEFAULT 'cyan',
+        created_at TEXT NOT NULL
       );`
     ],
     'write'
   )
+
+  // Safe migration for existing incidents table
+  try {
+    await db.execute('ALTER TABLE incidents ADD COLUMN attachments_json TEXT')
+  } catch {
+    // Column already exists
+  }
 
   // Seed default sections if empty
   const secRes = await db.execute('SELECT COUNT(*) as count FROM sections')
@@ -153,6 +179,24 @@ export async function initDatabase() {
             VALUES ('default', 'gmail', 'smtp.gmail.com', 587, 'soporte@nexus.io', '', 'Nexus Soporte TI', 'soporte@nexus.io', 1, ?)`,
       args: [new Date().toISOString()]
     })
+  }
+
+  // Seed default roles if empty
+  const roleRes = await db.execute('SELECT COUNT(*) as count FROM roles')
+  if (Number(roleRes.rows[0]?.count || 0) === 0) {
+    const defaultRoles = [
+      { id: 'role-soporte-1', name: 'Soporte TI (Nivel 1)', description: 'Atención a tickets de primer nivel, mesa de ayuda y diagnóstico preliminar', department: 'Soporte TI', color: 'blue' },
+      { id: 'role-devops-lead', name: 'DevOps Lead', description: 'Gestión de pipelines CI/CD, infraestructura cloud y automatizaciones', department: 'Infraestructura', color: 'cyan' },
+      { id: 'role-noc-op', name: 'Operador NOC', description: 'Monitoreo de telemetría 24/7, guardia de SLA y escalamiento de incidentes', department: 'Redes y Telecomunicaciones', color: 'purple' },
+      { id: 'role-admin', name: 'Administrador del Sistema', description: 'Control total de usuarios, roles, configuraciones y auditoría global', department: 'Seguridad Informática', color: 'amber' },
+      { id: 'role-sec-lead', name: 'Especialista en Seguridad TI', description: 'Gestión de accesos, análisis de vulnerabilidades y respuesta a incidentes', department: 'Seguridad Informática', color: 'rose' },
+    ]
+    for (const r of defaultRoles) {
+      await db.execute({
+        sql: 'INSERT INTO roles (id, name, description, department, color, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+        args: [r.id, r.name, r.description, r.department, r.color, new Date().toISOString()]
+      })
+    }
   }
 }
 

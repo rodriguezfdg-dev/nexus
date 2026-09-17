@@ -45,6 +45,7 @@ export async function GET(
       createdTime: row.created_time,
       aiCopilot: row.ai_copilot_json ? JSON.parse(row.ai_copilot_json) : null,
       timeline: row.timeline_json ? JSON.parse(row.timeline_json) : [],
+      attachments: row.attachments_json ? JSON.parse(row.attachments_json) : [],
     }
 
     return NextResponse.json(incident)
@@ -95,6 +96,97 @@ export async function POST(
 
     return NextResponse.json({ success: true, event: newEvent })
   } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}
+
+export async function PUT(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    await initDatabase()
+    const { id } = await params
+    const body = await request.json()
+    const cleanId = id.startsWith('#') ? id : `#${id}`
+    const rawId = cleanId.replace('#', '')
+
+    const { title, status, priority, service, env, tag, assignedToMe, assignee } = body
+
+    const updates: string[] = []
+    const args: any[] = []
+
+    if (title !== undefined) {
+      updates.push('title = ?')
+      args.push(title)
+    }
+    if (status !== undefined) {
+      updates.push('status = ?')
+      args.push(status)
+    }
+    if (priority !== undefined) {
+      updates.push('priority = ?')
+      args.push(priority)
+    }
+    if (service !== undefined) {
+      updates.push('service = ?')
+      args.push(service)
+    }
+    if (env !== undefined) {
+      updates.push('env = ?')
+      args.push(env)
+    }
+    if (tag !== undefined) {
+      updates.push('tag = ?')
+      args.push(tag)
+    }
+    if (assignedToMe !== undefined) {
+      updates.push('assigned_to_me = ?')
+      args.push(assignedToMe ? 1 : 0)
+    }
+    if (assignee?.name) {
+      updates.push('assignee_name = ?, assignee_initials = ?, assignee_status = ?')
+      args.push(assignee.name, assignee.initials || 'UN', assignee.status || 'online')
+    }
+
+    if (updates.length > 0) {
+      args.push(cleanId, rawId)
+      await db.execute({
+        sql: `UPDATE incidents SET ${updates.join(', ')} WHERE id = ? OR id = ?`,
+        args,
+      })
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (error: any) {
+    console.error('Error updating incident in SQLite:', error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    await initDatabase()
+    const { id } = await params
+    const cleanId = id.startsWith('#') ? id : `#${id}`
+    const rawId = cleanId.replace('#', '')
+
+    await db.execute({
+      sql: 'DELETE FROM incidents WHERE id = ? OR id = ?',
+      args: [cleanId, rawId],
+    })
+
+    await db.execute({
+      sql: 'DELETE FROM attachments WHERE incident_id = ? OR incident_id = ?',
+      args: [cleanId, rawId],
+    })
+
+    return NextResponse.json({ success: true })
+  } catch (error: any) {
+    console.error('Error deleting incident in SQLite:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
