@@ -79,17 +79,17 @@ export async function POST(request: Request) {
       const host = smtp_host || (provider === 'gmail' ? 'smtp.gmail.com' : 'smtp.office365.com')
       const port = Number(smtp_port) || 587
       const fromAddr = sender_email || smtp_user
-      const fromDisplay = sender_name || 'Nexus Soporte TI'
+      const fromDisplay = sender_name || 'Desarrollo TI - Lander Inmobiliaria'
 
       const testHtml = `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background: #ffffff;">
           <div style="background: linear-gradient(135deg, #0284c7, #06b6d4); padding: 20px; border-radius: 12px; color: #ffffff; text-align: center;">
-            <h2 style="margin: 0; font-size: 22px; font-weight: 700;">Nexus Soporte TI</h2>
+            <h2 style="margin: 0; font-size: 22px; font-weight: 700;">Desarrollo TI - Lander Inmobiliaria</h2>
             <p style="margin: 6px 0 0; opacity: 0.9; font-size: 14px;">Correo de Verificación SMTP</p>
           </div>
           <div style="padding: 24px 8px; color: #1e293b; line-height: 1.6;">
             <p style="font-size: 16px; font-weight: 600; color: #0f172a;">¡Hola!</p>
-            <p>Este correo confirma que tu servidor SMTP de <strong>${provider === 'gmail' ? 'Google Gmail' : 'tu proveedor'}</strong> está correctamente enlazado con la plataforma <strong>Nexus</strong>.</p>
+            <p>Este correo confirma que tu servidor SMTP de <strong>${provider === 'gmail' ? 'Google Gmail' : 'tu proveedor'}</strong> está correctamente enlazado con la plataforma de <strong>Desarrollo TI - Lander Inmobiliaria</strong>.</p>
             <div style="background: #f8fafc; border-left: 4px solid #0284c7; padding: 14px 18px; margin: 20px 0; border-radius: 6px; font-size: 13px; color: #334155; font-family: monospace;">
               <strong>Detalles técnicos:</strong><br>
               • Servidor: ${host}:${port}<br>
@@ -101,7 +101,7 @@ export async function POST(request: Request) {
             <p style="font-size: 13px; color: #64748b;">A partir de este momento, todos los tickets, alertas y comunicaciones de los usuarios podrán ser despachados en tiempo real mediante esta cuenta.</p>
           </div>
           <div style="border-top: 1px solid #e2e8f0; padding-top: 16px; font-size: 11px; color: #94a3b8; text-align: center;">
-            Enviado de forma segura desde el motor de notificaciones de Nexus Incident Response.
+            Enviado de forma segura desde la plataforma de Desarrollo TI - Lander Inmobiliaria.
           </div>
         </div>
       `
@@ -114,9 +114,9 @@ export async function POST(request: Request) {
         from: fromAddr,
         fromName: fromDisplay,
         to: targetRecipient,
-        subject: '✅ Nexus TI - Verificación de Conexión de Correo Exitosa',
+        subject: '✅ Desarrollo TI - Lander Inmobiliaria: Verificación de Conexión Exitosa',
         html: testHtml,
-        text: `Nexus Soporte TI: Correo de verificación exitoso para ${targetRecipient} enviado desde ${host}:${port} a las ${new Date().toLocaleString()}`,
+        text: `Desarrollo TI - Lander Inmobiliaria: Correo de verificación exitoso para ${targetRecipient} enviado desde ${host}:${port} a las ${new Date().toLocaleString()}`,
       })
 
       if (!smtpResult.success) {

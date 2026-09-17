@@ -99,12 +99,12 @@ export async function sendVerificationCodeEmail(
 
     const isReset = purpose === 'password_reset'
     const subject = isReset
-      ? `Código de recuperación de contraseña: ${code} - Nexus TI`
-      : `Código de verificación de registro: ${code} - Nexus TI`
+      ? `Código de recuperación de contraseña: ${code} - Desarrollo TI - Lander Inmobiliaria`
+      : `Código de verificación de registro: ${code} - Desarrollo TI - Lander Inmobiliaria`
 
     const actionDescription = isReset
       ? 'Hemos recibido una solicitud para restablecer la contraseña de tu cuenta.'
-      : 'Se ha registrado tu cuenta en la consola de Operaciones y Mesa de Ayuda TI NexusDesk.'
+      : 'Se ha registrado tu cuenta en la plataforma de Desarrollo TI - Lander Inmobiliaria.'
 
     const html = `
 <!DOCTYPE html>
@@ -118,8 +118,8 @@ export async function sendVerificationCodeEmail(
     
     <!-- Header -->
     <div style="padding: 24px 32px; background: linear-gradient(135deg, rgba(6,182,212,0.15), rgba(124,58,237,0.15)); border-bottom: 1px solid #1f2937;">
-      <h1 style="margin: 0; font-size: 20px; font-weight: 800; color: #ffffff; letter-spacing: 1px;">
-        NEXUS<span style="color: #22d3ee;">DESK</span>
+      <h1 style="margin: 0; font-size: 20px; font-weight: 800; color: #ffffff; letter-spacing: 0.5px;">
+        Desarrollo TI <span style="color: #22d3ee;">- Lander Inmobiliaria</span>
       </h1>
       <p style="margin: 4px 0 0 0; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: #9ca3af;">
         Operaciones TI & Mesa de Ayuda
@@ -149,7 +149,7 @@ export async function sendVerificationCodeEmail(
         ${
           isReset
             ? 'Ingresa este código en la pantalla de recuperación de contraseña para establecer una nueva clave.'
-            : 'Conserva este código. Podrás usarlo en caso de necesitar restablecer tu acceso o validar tu identidad con el equipo de TI.'
+            : 'Conserva este código. Podrás usarlo en caso de necesitar restablecer tu acceso o validar tu identidad con el equipo de Desarrollo TI.'
         }
       </p>
 
@@ -169,7 +169,7 @@ export async function sendVerificationCodeEmail(
     <!-- Footer -->
     <div style="padding: 16px 32px; background: #030712; border-top: 1px solid #1f2937; text-align: center;">
       <p style="margin: 0; font-size: 10px; color: #6b7280;">
-        Este es un mensaje automático generado por Nexus TI. Si no solicitaste este código, puedes ignorar este correo.
+        Este es un mensaje automático generado por Desarrollo TI - Lander Inmobiliaria. Si no solicitaste este código, puedes ignorar este correo.
       </p>
     </div>
 
@@ -178,7 +178,7 @@ export async function sendVerificationCodeEmail(
 </html>
 `
 
-    const text = `NEXUSDESK TI - CÓDIGO DE VERIFICACIÓN\n\nHola ${name},\n${actionDescription}\n\nTu código de verificación es: ${code}\n\n${
+    const text = `DESARROLLO TI - LANDER INMOBILIARIA\nCÓDIGO DE VERIFICACIÓN\n\nHola ${name},\n${actionDescription}\n\nTu código de verificación es: ${code}\n\n${
       isReset
         ? 'Ingresa este código para restablecer tu contraseña.'
         : 'Guarda este código para validación o recuperación futura. Tu cuenta queda en espera de activación por un Administrador de TI.'
@@ -190,7 +190,7 @@ export async function sendVerificationCodeEmail(
       user: config.smtp_user,
       pass: config.smtp_pass,
       from: config.sender_email || config.smtp_user,
-      fromName: config.sender_name || 'Nexus Soporte TI',
+      fromName: config.sender_name || 'Desarrollo TI - Lander Inmobiliaria',
       to: toEmail,
       subject,
       html,
@@ -233,7 +233,7 @@ export async function sendTicketAssignedEmail({
     }
 
     const prio = getPrioritySpanish(priority)
-    const subject = `[NexusDesk] Nuevo ticket asignado: ${ticketId} - ${title}`
+    const subject = `[Desarrollo TI - Lander Inmobiliaria] Nuevo ticket asignado: ${ticketId} - ${title}`
 
     const html = `
 <!DOCTYPE html>
@@ -247,11 +247,11 @@ export async function sendTicketAssignedEmail({
     
     <!-- Header -->
     <div style="padding: 24px 32px; background: linear-gradient(135deg, rgba(6,182,212,0.15), rgba(124,58,237,0.15)); border-bottom: 1px solid #1f2937;">
-      <h1 style="margin: 0; font-size: 20px; font-weight: 800; color: #ffffff; letter-spacing: 1px;">
-        NEXUS<span style="color: #22d3ee;">DESK</span>
+      <h1 style="margin: 0; font-size: 20px; font-weight: 800; color: #ffffff; letter-spacing: 0.5px;">
+        Desarrollo TI <span style="color: #22d3ee;">- Lander Inmobiliaria</span>
       </h1>
       <p style="margin: 4px 0 0 0; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: #9ca3af;">
-        Operaciones TI & Asignación de Tickets
+        Asignación de Tickets de Soporte
       </p>
     </div>
 
@@ -291,7 +291,7 @@ export async function sendTicketAssignedEmail({
 
       <div style="background: rgba(6,182,212,0.08); border-left: 3px solid #06b6d4; padding: 14px 16px; border-radius: 6px; margin-top: 20px;">
         <p style="margin: 0; font-size: 12px; color: #67e8f9; line-height: 1.5;">
-          <strong>Acción requerida:</strong> Ingresa al tablero Kanban o a la vista de detalle de NexusDesk para atender y diagnosticar este ticket.
+          <strong>Acción requerida:</strong> Ingresa a la plataforma de Desarrollo TI para atender y diagnosticar este ticket.
         </p>
       </div>
     </div>
@@ -299,7 +299,7 @@ export async function sendTicketAssignedEmail({
     <!-- Footer -->
     <div style="padding: 16px 32px; background: #030712; border-top: 1px solid #1f2937; text-align: center;">
       <p style="margin: 0; font-size: 10px; color: #6b7280;">
-        Notificación automática enviada por NexusDesk Operaciones TI.
+        Notificación automática enviada por Desarrollo TI - Lander Inmobiliaria.
       </p>
     </div>
 
@@ -308,7 +308,7 @@ export async function sendTicketAssignedEmail({
 </html>
 `
 
-    const text = `NEXUSDESK TI - NUEVO TICKET ASIGNADO\n\nHola ${assigneeName},\nSe te ha asignado como responsable del ticket ${ticketId}.\n\nTítulo: ${title}\nPrioridad: ${prio.label}\nÁrea / Servicio: ${service}\nSolicitante: ${reporterName} (${reporterEmail || 'N/A'})\n\nPor favor ingresa a NexusDesk para gestionar la atención del ticket.`
+    const text = `DESARROLLO TI - LANDER INMOBILIARIA\nNUEVO TICKET ASIGNADO\n\nHola ${assigneeName},\nSe te ha asignado como responsable del ticket ${ticketId}.\n\nTítulo: ${title}\nPrioridad: ${prio.label}\nÁrea / Servicio: ${service}\nSolicitante: ${reporterName} (${reporterEmail || 'N/A'})\n\nPor favor ingresa a la plataforma para gestionar la atención del ticket.`
 
     return await sendSmtpEmail({
       host: config.smtp_host,
@@ -316,7 +316,7 @@ export async function sendTicketAssignedEmail({
       user: config.smtp_user,
       pass: config.smtp_pass,
       from: config.sender_email || config.smtp_user,
-      fromName: config.sender_name || 'Nexus Soporte TI',
+      fromName: config.sender_name || 'Desarrollo TI - Lander Inmobiliaria',
       to: toEmail,
       subject,
       html,
@@ -361,9 +361,9 @@ export async function sendTicketStatusChangedEmail({
     const prevSt = getStatusSpanish(previousStatus)
     const newSt = getStatusSpanish(newStatus)
     const prio = priority ? getPrioritySpanish(priority) : null
-    const subject = `[NexusDesk] Tu ticket ${ticketId} ha sido actualizado: ${newSt.label}`
+    const subject = `[Desarrollo TI - Lander Inmobiliaria] Tu ticket ${ticketId} ha sido actualizado: ${newSt.label}`
 
-    let statusDescription = 'Tu requerimiento está siendo atendido activamente por nuestro equipo técnico.'
+    let statusDescription = 'Tu requerimiento está siendo atendido activamente por nuestro equipo técnico de Desarrollo TI.'
     if (newStatus === 'In Progress') {
       statusDescription = 'Un especialista técnico ha comenzado a trabajar en la resolución de tu requerimiento.'
     } else if (newStatus === 'Blocked') {
@@ -384,11 +384,11 @@ export async function sendTicketStatusChangedEmail({
     
     <!-- Header -->
     <div style="padding: 24px 32px; background: linear-gradient(135deg, rgba(6,182,212,0.15), rgba(124,58,237,0.15)); border-bottom: 1px solid #1f2937;">
-      <h1 style="margin: 0; font-size: 20px; font-weight: 800; color: #ffffff; letter-spacing: 1px;">
-        NEXUS<span style="color: #22d3ee;">DESK</span>
+      <h1 style="margin: 0; font-size: 20px; font-weight: 800; color: #ffffff; letter-spacing: 0.5px;">
+        Desarrollo TI <span style="color: #22d3ee;">- Lander Inmobiliaria</span>
       </h1>
       <p style="margin: 4px 0 0 0; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: #9ca3af;">
-        Mesa de Ayuda TI & Actualización de Estado
+        Mesa de Ayuda & Actualización de Estado
       </p>
     </div>
 
@@ -432,7 +432,7 @@ export async function sendTicketStatusChangedEmail({
         </h2>
 
         <div style="font-size: 12px; line-height: 1.8; color: #9ca3af;">
-          <div><strong>Atendido por:</strong> <span style="color: #38bdf8; font-weight: 600;">${assigneeName && assigneeName !== 'Sin Asignar' && assigneeName !== 'Unassigned' ? assigneeName : 'Equipo de Soporte TI'}</span></div>
+          <div><strong>Atendido por:</strong> <span style="color: #38bdf8; font-weight: 600;">${assigneeName && assigneeName !== 'Sin Asignar' && assigneeName !== 'Unassigned' ? assigneeName : 'Equipo de Desarrollo TI'}</span></div>
           ${service ? `<div><strong>Área / Servicio:</strong> <span style="color: #e5e7eb;">${service}</span></div>` : ''}
         </div>
       </div>
@@ -447,7 +447,7 @@ export async function sendTicketStatusChangedEmail({
     <!-- Footer -->
     <div style="padding: 16px 32px; background: #030712; border-top: 1px solid #1f2937; text-align: center;">
       <p style="margin: 0; font-size: 10px; color: #6b7280;">
-        Mensaje automático generado por NexusDesk TI. Puedes revisar el avance en tiempo real desde la plataforma.
+        Mensaje automático generado por Desarrollo TI - Lander Inmobiliaria. Puedes revisar el avance en tiempo real desde la plataforma.
       </p>
     </div>
 
@@ -456,7 +456,7 @@ export async function sendTicketStatusChangedEmail({
 </html>
 `
 
-    const text = `NEXUSDESK TI - ACTUALIZACIÓN DE TICKET\n\nHola ${reporterName || 'Usuario'},\nTu ticket ${ticketId} ha cambiado de estado: ${prevSt.label} ➔ ${newSt.label}.\n\nTítulo: ${title}\nAtendido por: ${assigneeName || 'Equipo TI'}\n\n${statusDescription}`
+    const text = `DESARROLLO TI - LANDER INMOBILIARIA\nACTUALIZACIÓN DE TICKET\n\nHola ${reporterName || 'Usuario'},\nTu ticket ${ticketId} ha cambiado de estado: ${prevSt.label} ➔ ${newSt.label}.\n\nTítulo: ${title}\nAtendido por: ${assigneeName || 'Equipo TI'}\n\n${statusDescription}`
 
     return await sendSmtpEmail({
       host: config.smtp_host,
@@ -464,7 +464,7 @@ export async function sendTicketStatusChangedEmail({
       user: config.smtp_user,
       pass: config.smtp_pass,
       from: config.sender_email || config.smtp_user,
-      fromName: config.sender_name || 'Nexus Soporte TI',
+      fromName: config.sender_name || 'Desarrollo TI - Lander Inmobiliaria',
       to: toEmail,
       subject,
       html,

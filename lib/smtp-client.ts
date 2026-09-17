@@ -27,7 +27,7 @@ export interface SmtpResult {
 export async function sendSmtpEmail(options: SmtpOptions): Promise<SmtpResult> {
   const { host, port, user, from, to, subject, html, text } = options
   const pass = options.pass.replace(/\s+/g, '') // remove spaces from Google app password
-  const fromName = options.fromName || 'Nexus Soporte TI'
+  const fromName = options.fromName || 'Desarrollo TI - Lander Inmobiliaria'
 
   return new Promise((resolve) => {
     let socket: net.Socket | tls.TLSSocket
