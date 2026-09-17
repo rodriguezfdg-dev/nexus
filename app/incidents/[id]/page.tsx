@@ -266,7 +266,7 @@ export default function IncidentDetailPage({
         id: incident.id,
         title: editTitle.trim(),
         priority: editPriority,
-        status: currentStatus,
+        status: editStatus,
         service: editService.trim() || 'Soporte General',
         env: editEnv,
         tag: editService.trim() || 'Soporte General',
@@ -289,6 +289,7 @@ export default function IncidentDetailPage({
       }
 
       // Update state locally
+      setCurrentStatus(editStatus)
       setIncident((prev) => ({
         ...prev,
         ...payload,
@@ -794,10 +795,10 @@ export default function IncidentDetailPage({
                       onChange={(e) => setEditStatus(e.target.value as IncidentStatus)}
                       className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500"
                     >
-                      <option value="Open">Open</option>
-                      <option value="In Progress">In Progress</option>
-                      <option value="Blocked">Blocked</option>
-                      <option value="Resolved">Resolved</option>
+                      <option value="Open">Pendiente (Open)</option>
+                      <option value="In Progress">En Proceso (In Progress)</option>
+                      <option value="Blocked">En Revisión (Blocked)</option>
+                      <option value="Resolved">Cerrado / Resuelto (Resolved)</option>
                     </select>
                   </div>
                 </div>

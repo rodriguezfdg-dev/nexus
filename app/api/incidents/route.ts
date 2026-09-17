@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server'
 import { db, initDatabase } from '@/lib/db'
+import {
+  getAssigneeEmail,
+  sendTicketAssignedEmail,
+  handleIncidentUpdatedNotifications,
+} from '@/lib/email-sender'
 
 export async function GET() {
   try {
@@ -135,6 +140,24 @@ export async function POST(request: Request) {
       ],
     })
 
+    // Notificación por correo al responsable asignado al crear el ticket
+    if (assigneeName && assigneeName !== 'Sin Asignar' && assigneeName !== 'Unassigned') {
+      getAssigneeEmail(assigneeName).then((email) => {
+        if (email && email.includes('@') && !email.endsWith('.internal')) {
+          sendTicketAssignedEmail({
+            toEmail: email,
+            assigneeName,
+            ticketId: id,
+            title,
+            priority,
+            service,
+            reporterName,
+            reporterEmail,
+          }).catch((err) => console.error('Error enviando correo de asignación en creación:', err))
+        }
+      }).catch((err) => console.error('Error buscando email del asignado:', err))
+    }
+
     return NextResponse.json({ success: true, id }, { status: 201 })
   } catch (error: any) {
     console.error('Error inserting incident into SQLite:', error)
@@ -151,6 +174,16 @@ export async function PUT(request: Request) {
     if (!id) {
       return NextResponse.json({ error: 'Missing incident id' }, { status: 400 })
     }
+
+    const cleanId = id.startsWith('#') ? id : `#${id}`
+    const rawId = cleanId.replace('#', '')
+
+    // Obtener estado anterior para comparar cambios de estado o asignado
+    const prevRes = await db.execute({
+      sql: 'SELECT * FROM incidents WHERE id = ? OR id = ? LIMIT 1',
+      args: [cleanId, rawId],
+    })
+    const prevIncident = prevRes.rows.length > 0 ? (prevRes.rows[0] as any) : null
 
     const updates: string[] = []
     const args: any[] = []
@@ -189,13 +222,23 @@ export async function PUT(request: Request) {
     }
 
     if (updates.length > 0) {
-      const cleanId = id.startsWith('#') ? id : `#${id}`
-      const rawId = cleanId.replace('#', '')
       args.push(cleanId, rawId)
       await db.execute({
         sql: `UPDATE incidents SET ${updates.join(', ')} WHERE id = ? OR id = ?`,
         args,
       })
+    }
+
+    // Notificaciones si hubo cambio de estado (atendido) o asignación de responsable
+    if (prevIncident) {
+      handleIncidentUpdatedNotifications({
+        prevIncident,
+        newStatus: status,
+        newAssigneeName: assignee?.name,
+        updatedTitle: title,
+        updatedPriority: priority,
+        updatedService: service,
+      }).catch((err) => console.error('Error en notificaciones de actualización de incidente:', err))
     }
 
     return NextResponse.json({ success: true })

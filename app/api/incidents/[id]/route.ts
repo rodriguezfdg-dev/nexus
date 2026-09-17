@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db, initDatabase } from '@/lib/db'
+import { handleIncidentUpdatedNotifications } from '@/lib/email-sender'
 
 export async function GET(
   request: Request,
@@ -111,6 +112,13 @@ export async function PUT(
     const cleanId = id.startsWith('#') ? id : `#${id}`
     const rawId = cleanId.replace('#', '')
 
+    // Obtener estado anterior para comparar cambios de estado o asignado
+    const prevRes = await db.execute({
+      sql: 'SELECT * FROM incidents WHERE id = ? OR id = ? LIMIT 1',
+      args: [cleanId, rawId],
+    })
+    const prevIncident = prevRes.rows.length > 0 ? (prevRes.rows[0] as any) : null
+
     const { title, status, priority, service, env, tag, assignedToMe, assignee } = body
 
     const updates: string[] = []
@@ -155,6 +163,18 @@ export async function PUT(
         sql: `UPDATE incidents SET ${updates.join(', ')} WHERE id = ? OR id = ?`,
         args,
       })
+    }
+
+    // Notificaciones si hubo cambio de estado (atendido) o asignación de responsable
+    if (prevIncident) {
+      handleIncidentUpdatedNotifications({
+        prevIncident,
+        newStatus: status,
+        newAssigneeName: assignee?.name,
+        updatedTitle: title,
+        updatedPriority: priority,
+        updatedService: service,
+      }).catch((err) => console.error('Error en notificaciones de actualización en [id]:', err))
     }
 
     return NextResponse.json({ success: true })
