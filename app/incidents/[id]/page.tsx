@@ -515,6 +515,15 @@ export default function IncidentDetailPage({
             })}
           </div>
 
+          <Link
+            href="/audit-logs"
+            className="flex items-center gap-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3.5 py-2 text-xs font-bold text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/20 transition shadow-sm cursor-pointer"
+            title="Ver trazabilidad y auditoría completa de tickets"
+          >
+            <Shield className="size-3.5" />
+            <span>Auditoría</span>
+          </Link>
+
           <button
             type="button"
             onClick={() => setShowDeleteModal(true)}

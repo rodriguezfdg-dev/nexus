@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db, initDatabase } from '@/lib/db'
 import { handleIncidentUpdatedNotifications } from '@/lib/email-sender'
+import { recordTicketAuditEvent } from '@/lib/audit-logger'
 
 export async function GET(
   request: Request,
@@ -165,8 +166,41 @@ export async function PUT(
       })
     }
 
-    // Notificaciones si hubo cambio de estado (atendido) o asignación de responsable
+    // Registrar trazabilidad de auditoría
     if (prevIncident) {
+      const actorName = body.updatedBy || (assignee?.name && assignee.name !== 'Sin Asignar' ? assignee.name : 'Operador TI')
+      const actorEmail = body.updatedByEmail || null
+
+      // Cambio de estado / Cierre
+      if (status && status !== prevIncident.status) {
+        const isClosed = status === 'Resolved' || status === 'Closed'
+        recordTicketAuditEvent({
+          ticketId: cleanId,
+          action: isClosed ? 'cierre' : 'cambio_estado',
+          previousStatus: prevIncident.status,
+          newStatus: status,
+          actorName,
+          actorEmail,
+          details: isClosed
+            ? `Ticket cerrado y resuelto por ${actorName}`
+            : `Estado cambiado de "${prevIncident.status}" a "${status}" por ${actorName}`,
+        }).catch((err) => console.error('Error registrando auditoría de estado en [id]:', err))
+      }
+
+      // Cambio de asignado
+      if (assignee?.name && assignee.name !== prevIncident.assignee_name) {
+        recordTicketAuditEvent({
+          ticketId: cleanId,
+          action: 'asignacion',
+          previousAssignee: prevIncident.assignee_name,
+          newAssignee: assignee.name,
+          actorName,
+          actorEmail,
+          details: `Responsable modificado a "${assignee.name}" (Anterior: "${prevIncident.assignee_name}")`,
+        }).catch((err) => console.error('Error registrando auditoría de asignación en [id]:', err))
+      }
+
+      // Notificaciones por correo
       handleIncidentUpdatedNotifications({
         prevIncident,
         newStatus: status,

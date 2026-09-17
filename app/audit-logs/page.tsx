@@ -1,580 +1,848 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  FileText,
   Shield,
-  Download,
   Search,
   Filter,
+  ArrowRight,
+  Clock,
+  User,
   CheckCircle2,
-  AlertTriangle,
-  AlertOctagon,
-  Lock,
-  RotateCcw,
-  ChevronLeft,
-  ChevronRight,
-  Eye,
-  X,
-  Code2,
-  Calendar,
+  AlertCircle,
+  Activity,
   Layers,
+  FileText,
+  BarChart3,
+  Download,
+  RotateCcw,
+  ChevronRight,
+  ExternalLink,
+  X,
+  Calendar,
+  Sparkles,
+  TrendingUp,
+  Tag,
+  Check,
 } from 'lucide-react'
-import { TableSkeleton } from '@/components/nexus/state-skeletons'
-import { EmptyState } from '@/components/nexus/empty-state'
+import Link from 'next/link'
 import { useToast } from '@/components/nexus/toast-provider'
 
-export interface AuditEvent {
+export interface AuditEventItem {
   id: string
-  event: string
-  category: 'Security' | 'Infrastructure' | 'Policy' | 'AI'
-  actor: {
-    name: string
-    email: string
-    isDaemon?: boolean
-  }
-  sourceIp: string
-  node: string
-  status: 'Approved' | 'Success' | 'Audited' | 'Denied'
-  timestamp: string
-  sha256: string
+  ticketId: string
+  ticketTitle: string
+  ticketPriority: string
+  ticketService: string
+  currentStatus: string
+  action: 'creacion' | 'cambio_estado' | 'asignacion' | 'edicion' | 'cierre'
+  previousStatus: string | null
+  newStatus: string | null
+  previousAssignee: string | null
+  newAssignee: string | null
+  actorName: string
+  actorEmail: string | null
+  details: string
+  createdAt: string
+  durationSeconds: number
   metadata: Record<string, any>
 }
 
-const allAuditEvents: AuditEvent[] = [
-  {
-    id: 'AUD-9104',
-    event: 'IAM Role Policy Modified: DevOps-Admin Escalation',
-    category: 'Security',
-    actor: { name: 'Alex Thorne', email: 'alex.thorne@nexus.internal' },
-    sourceIp: '192.168.1.42',
-    node: 'us-east-core-01',
-    status: 'Approved',
-    timestamp: '4m ago',
-    sha256: '9f82c41890a2b7e189d9e4a3',
-    metadata: { action: 'iam:PutRolePolicy', target: 'arn:nexus:iam::devops-admin', approvedBy: 'SecOps-MFA' },
-  },
-  {
-    id: 'AUD-9103',
-    event: 'Quantum Mesh TLS Key Rotation Synchronized',
-    category: 'Infrastructure',
-    actor: { name: 'KMS Worker Daemon', email: 'kms-daemon@internal.mesh', isDaemon: true },
-    sourceIp: '10.0.0.1',
-    node: 'global-kms-mesh',
-    status: 'Success',
-    timestamp: '18m ago',
-    sha256: 'a1b7e4920c8f12d456e789a0',
-    metadata: { keyId: 'key-quantum-kyber-768', rotatedNodes: 128, algorithm: 'ML-KEM-768' },
-  },
-  {
-    id: 'AUD-9102',
-    event: 'Emergency SSH Bastion Ingress Terminal Spawned',
-    category: 'Security',
-    actor: { name: 'Elena Rostova', email: 'tier3-oncall@nexus.internal' },
-    sourceIp: '172.16.4.12',
-    node: 'bastion-us-east',
-    status: 'Audited',
-    timestamp: '42m ago',
-    sha256: 'c4e91280fa1b7d8e90c234a1',
-    metadata: { reason: 'P1 Incident #NX-8942 DB WAL Contention', durationLimit: '60m', ttySession: 'active' },
-  },
-  {
-    id: 'AUD-9101',
-    event: 'Automated AI Remediation Plan Dispatched',
-    category: 'AI',
-    actor: { name: 'Quantum AI Agent', email: 'ai-triage@nexus.internal', isDaemon: true },
-    sourceIp: '10.244.0.15',
-    node: 'ai-copilot-cluster',
-    status: 'Success',
-    timestamp: '1h ago',
-    sha256: '8b7a1920ef0123c4d5e6789a',
-    metadata: { runbookId: 'RB-101', confidence: 0.94, targetTicket: '#NX-8942' },
-  },
-  {
-    id: 'AUD-9100',
-    event: 'PostgreSQL Database Snapshot Exported to Cold Vault',
-    category: 'Infrastructure',
-    actor: { name: 'Backup Worker v4', email: 'backup-agent@storage.internal', isDaemon: true },
-    sourceIp: '10.0.4.88',
-    node: 'patroni-storage-02',
-    status: 'Success',
-    timestamp: '2h ago',
-    sha256: '3f90a128b7e4c190d234e567',
-    metadata: { snapshotBytes: '4.8 TB', encryption: 'AES-256-GCM', targetS3: 's3://nexus-db-backups-vault' },
-  },
-  {
-    id: 'AUD-9099',
-    event: 'Unauthorized Admin Console Access Blocked',
-    category: 'Security',
-    actor: { name: 'Unknown Client', email: 'anonymous@198.51.100.89' },
-    sourceIp: '198.51.100.89',
-    node: 'edge-ingress-eu-west',
-    status: 'Denied',
-    timestamp: '3h ago',
-    sha256: '0a1b2c3d4e5f678901234567',
-    metadata: { reason: 'Invalid client certificate & failed quantum handshake', threatScore: 98 },
-  },
-  {
-    id: 'AUD-9098',
-    event: 'Automation Rule #RULE-801 Threshold Reconfigured',
-    category: 'Policy',
-    actor: { name: 'Marcus Vance', email: 'marcus.vance@nexus.internal' },
-    sourceIp: '192.168.1.18',
-    node: 'policy-worker-01',
-    status: 'Approved',
-    timestamp: '5h ago',
-    sha256: '5d6e7f8a9b0c1d2e3f4a5b6c',
-    metadata: { ruleId: 'RULE-801', fieldChanged: 'triggerTimeout', oldValue: '10m', newValue: '5m' },
-  },
-  {
-    id: 'AUD-9097',
-    event: 'Kubernetes Pod Security Admission Policy Enforced',
-    category: 'Policy',
-    actor: { name: 'K8s Admission Webhook', email: 'webhook@k8s.internal', isDaemon: true },
-    sourceIp: '10.96.0.1',
-    node: 'k8s-control-plane-01',
-    status: 'Success',
-    timestamp: '7h ago',
-    sha256: '7c8d9e0f1a2b3c4d5e6f7a8b',
-    metadata: { policy: 'restricted', namespace: 'default', rejectedContainers: 0 },
-  },
-  {
-    id: 'AUD-9096',
-    event: 'API Gateway Rate-Limit Threshold Escalated',
-    category: 'Infrastructure',
-    actor: { name: 'Alex Thorne', email: 'alex.thorne@nexus.internal' },
-    sourceIp: '192.168.1.42',
-    node: 'api-gateway-us-east',
-    status: 'Approved',
-    timestamp: '11h ago',
-    sha256: '9a0b1c2d3e4f5a6b7c8d9e0f',
-    metadata: { maxRps: 50000, burst: 75000, zone: 'us-east' },
-  },
-  {
-    id: 'AUD-9095',
-    event: 'AI Copilot Runbook Database Index Re-generated',
-    category: 'AI',
-    actor: { name: 'AI Indexer Service', email: 'rag-daemon@internal.ai', isDaemon: true },
-    sourceIp: '10.244.2.80',
-    node: 'vector-db-node-01',
-    status: 'Success',
-    timestamp: '14h ago',
-    sha256: '1f2e3d4c5b6a798012345678',
-    metadata: { indexedDocuments: 480, embeddingDimension: 1536, durationMs: 4200 },
-  },
-  {
-    id: 'AUD-9094',
-    event: 'Security Alert Rule #SEC-402 Triggered: Port Scan',
-    category: 'Security',
-    actor: { name: 'WAF Threat Engine', email: 'threat-engine@nexus.internal', isDaemon: true },
-    sourceIp: '203.0.113.45',
-    node: 'edge-firewall-02',
-    status: 'Audited',
-    timestamp: '18h ago',
-    sha256: '2a3b4c5d6e7f8a9b0c1d2e3f',
-    metadata: { probedPorts: [22, 443, 8080, 5432], actionTaken: 'BGP Blackhole Route Injected' },
-  },
-  {
-    id: 'AUD-9093',
-    event: 'Database Failover Dry-Run Simulation Executed',
-    category: 'Infrastructure',
-    actor: { name: 'Sarah Lin', email: 'sarah.lin@nexus.internal' },
-    sourceIp: '192.168.1.15',
-    node: 'patroni-standby-03',
-    status: 'Success',
-    timestamp: '1d ago',
-    sha256: '4b5c6d7e8f9a0b1c2d3e4f5a',
-    metadata: { simulatedRTO: '4.2s', simulatedRPO: '0 bytes', testCluster: 'staging-postgres-01' },
-  },
-]
-
-const ITEMS_PER_PAGE = 6
-
 export default function AuditLogsPage() {
+  const { success, error, info } = useToast()
+
+  const [events, setEvents] = useState<AuditEventItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [categoryFilter, setCategoryFilter] = useState<'all' | 'Security' | 'Infrastructure' | 'Policy' | 'AI'>('all')
   const [searchQuery, setSearchQuery] = useState('')
-  const [currentPage, setCurrentPage] = useState(1)
-  const [inspectEvent, setInspectEvent] = useState<AuditEvent | null>(null)
+  const [selectedAction, setSelectedAction] = useState<string>('all')
+  const [selectedActor, setSelectedActor] = useState<string>('all')
+  const [selectedStatus, setSelectedStatus] = useState<string>('all')
+  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null)
+  const [showIndividualModal, setShowIndividualModal] = useState(false)
 
-  const { success, info } = useToast()
-
-  // Brief shimmer skeleton whenever filter or page changes
-  useEffect(() => {
+  // Cargar eventos de auditoría desde la API
+  const fetchAuditEvents = async () => {
     setLoading(true)
-    const timer = setTimeout(() => setLoading(false), 320)
-    return () => clearTimeout(timer)
-  }, [categoryFilter, currentPage])
-
-  // Filter events
-  const filteredEvents = allAuditEvents
-    .filter((ev) => {
-      if (categoryFilter !== 'all' && ev.category !== categoryFilter) return false
-      if (!searchQuery.trim()) return true
-      const q = searchQuery.toLowerCase()
-      return (
-        ev.id.toLowerCase().includes(q) ||
-        ev.event.toLowerCase().includes(q) ||
-        ev.actor.name.toLowerCase().includes(q) ||
-        ev.actor.email.toLowerCase().includes(q) ||
-        ev.sourceIp.includes(q) ||
-        ev.node.toLowerCase().includes(q)
-      )
-    })
-
-  // Pagination calculation
-  const totalPages = Math.max(1, Math.ceil(filteredEvents.length / ITEMS_PER_PAGE))
-  const paginatedEvents = filteredEvents.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  )
-
-  const handleExport = () => {
-    const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(
-      JSON.stringify(filteredEvents, null, 2)
-    )}`
-    const downloadAnchor = document.createElement('a')
-    downloadAnchor.setAttribute('href', jsonString)
-    downloadAnchor.setAttribute('download', `nexus-audit-ledger-${Date.now().toString().slice(-4)}.json`)
-    document.body.appendChild(downloadAnchor)
-    downloadAnchor.click()
-    downloadAnchor.remove()
-    success('Audit Ledger Exported', `Downloaded ${filteredEvents.length} signed cryptographic audit logs.`)
+    try {
+      const res = await fetch('/api/audit-logs?limit=300')
+      if (!res.ok) throw new Error('Error al cargar la auditoría')
+      const data = await res.json()
+      setEvents(data)
+    } catch (err: any) {
+      console.error(err)
+      error('Error al cargar eventos', err.message || 'No se pudo obtener la trazabilidad.')
+    } finally {
+      setLoading(false)
+    }
   }
 
+  useEffect(() => {
+    fetchAuditEvents()
+  }, [])
+
+  // Lista única de actores/usuarios para el filtro
+  const uniqueActors = useMemo(() => {
+    const actors = new Set<string>()
+    events.forEach((e) => {
+      if (e.actorName) actors.add(e.actorName)
+    })
+    return Array.from(actors)
+  }, [events])
+
+  // Filtrado de eventos
+  const filteredEvents = useMemo(() => {
+    return events.filter((e) => {
+      const query = searchQuery.toLowerCase().trim()
+      const matchesSearch =
+        !query ||
+        e.ticketId.toLowerCase().includes(query) ||
+        e.ticketTitle.toLowerCase().includes(query) ||
+        e.actorName.toLowerCase().includes(query) ||
+        e.details.toLowerCase().includes(query)
+
+      const matchesAction = selectedAction === 'all' || e.action === selectedAction
+      const matchesActor = selectedActor === 'all' || e.actorName === selectedActor
+      const matchesStatus =
+        selectedStatus === 'all' ||
+        e.newStatus === selectedStatus ||
+        e.currentStatus === selectedStatus
+
+      return matchesSearch && matchesAction && matchesActor && matchesStatus
+    })
+  }, [events, searchQuery, selectedAction, selectedActor, selectedStatus])
+
+  // Métricas globales de auditoría
+  const metrics = useMemo(() => {
+    const totalEvents = events.length
+    const uniqueTickets = new Set(events.map((e) => e.ticketId)).size
+    const statusChanges = events.filter((e) => e.action === 'cambio_estado').length
+    const closedTickets = events.filter((e) => e.action === 'cierre').length
+
+    return { totalEvents, uniqueTickets, statusChanges, closedTickets }
+  }, [events])
+
+  // Formateador de fechas en español
+  const formatDateTime = (isoString: string) => {
+    if (!isoString) return 'N/A'
+    try {
+      const d = new Date(isoString)
+      if (isNaN(d.getTime())) return isoString
+      return d.toLocaleString('es-CL', {
+        year: 'numeric',
+        month: 'short',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      })
+    } catch {
+      return isoString
+    }
+  }
+
+  // Formateador de duración en segundos a texto legible
+  const formatDuration = (seconds: number) => {
+    if (!seconds || seconds <= 0) return 'Inmediato'
+    const mins = Math.floor(seconds / 60)
+    const hours = Math.floor(mins / 60)
+    const days = Math.floor(hours / 24)
+
+    if (days > 0) return `${days}d ${hours % 24}h`
+    if (hours > 0) return `${hours}h ${mins % 60}m`
+    return `${mins}m`
+  }
+
+  // Traducción y badges de estado
+  const getStatusBadge = (status: string | null) => {
+    if (!status) return null
+    switch (status) {
+      case 'Open':
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">Pendiente</span>
+      case 'In Progress':
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20">En Proceso</span>
+      case 'Blocked':
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20">En Revisión</span>
+      case 'Resolved':
+      case 'Closed':
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">Resuelto / Cerrado</span>
+      default:
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-secondary text-foreground">{status}</span>
+    }
+  }
+
+  // Traducción y badges de acción
+  const getActionBadge = (action: string) => {
+    switch (action) {
+      case 'creacion':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-500/10 text-blue-500 border border-blue-500/20">
+            <Sparkles className="size-3" />
+            Creación
+          </span>
+        )
+      case 'cambio_estado':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-cyan-500/10 text-cyan-500 border border-cyan-500/20">
+            <Activity className="size-3" />
+            Cambio de Estado
+          </span>
+        )
+      case 'asignacion':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-violet-500/10 text-violet-500 border border-violet-500/20">
+            <User className="size-3" />
+            Asignación
+          </span>
+        )
+      case 'cierre':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+            <CheckCircle2 className="size-3" />
+            Cierre Definitivo
+          </span>
+        )
+      case 'edicion':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-500/10 text-amber-500 border border-amber-500/20">
+            <FileText className="size-3" />
+            Edición
+          </span>
+        )
+      default:
+        return <span className="text-xs text-muted-foreground">{action}</span>
+    }
+  }
+
+  // Exportar auditoría a CSV
+  const handleExportCSV = () => {
+    if (filteredEvents.length === 0) {
+      info('Sin datos', 'No hay eventos de auditoría para exportar.')
+      return
+    }
+
+    const headers = ['Fecha y Hora', 'Ticket ID', 'Titulo', 'Usuario', 'Accion', 'Estado Anterior', 'Estado Nuevo', 'Detalles', 'Duracion Segundos']
+    const rows = filteredEvents.map((e) => [
+      formatDateTime(e.createdAt),
+      e.ticketId,
+      `"${(e.ticketTitle || '').replace(/"/g, '""')}"`,
+      `"${(e.actorName || '').replace(/"/g, '""')}"`,
+      e.action,
+      e.previousStatus || '',
+      e.newStatus || '',
+      `"${(e.details || '').replace(/"/g, '""')}"`,
+      e.durationSeconds || 0,
+    ])
+
+    const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n')
+    const encodedUri = encodeURI(csvContent)
+    const link = document.createElement('a')
+    link.setAttribute('href', encodedUri)
+    link.setAttribute('download', `auditoria_tickets_${new Date().toISOString().slice(0, 10)}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    success('Exportación Exitosa', 'El archivo CSV de auditoría ha sido generado.')
+  }
+
+  // Abrir vista individual con gráficos
+  const handleOpenIndividualTraceability = (ticketId: string) => {
+    setSelectedTicketId(ticketId)
+    setShowIndividualModal(true)
+  }
+
+  // Eventos filtrados para el ticket seleccionado en la vista individual
+  const ticketEvents = useMemo(() => {
+    if (!selectedTicketId) return []
+    return events
+      .filter((e) => e.ticketId === selectedTicketId)
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+  }, [events, selectedTicketId])
+
+  // Datos para los gráficos de la vista individual
+  const individualTicketData = useMemo(() => {
+    if (!selectedTicketId || ticketEvents.length === 0) return null
+
+    const firstEvent = ticketEvents[0]
+    const lastEvent = ticketEvents[ticketEvents.length - 1]
+    const isClosed = ticketEvents.some((e) => e.action === 'cierre' || e.newStatus === 'Resolved')
+
+    // Cálculo de tiempo en cada estado
+    const stateTimes: Record<string, number> = {
+      Open: 0,
+      'In Progress': 0,
+      Blocked: 0,
+      Resolved: 0,
+    }
+
+    for (let i = 0; i < ticketEvents.length; i++) {
+      const current = ticketEvents[i]
+      const next = ticketEvents[i + 1]
+      const stateKey = current.newStatus || current.previousStatus || 'Open'
+
+      if (next) {
+        const diffSecs = Math.max(0, Math.floor((new Date(next.createdAt).getTime() - new Date(current.createdAt).getTime()) / 1000))
+        if (stateTimes[stateKey] !== undefined) {
+          stateTimes[stateKey] += diffSecs
+        } else {
+          stateTimes[stateKey] = diffSecs
+        }
+      } else {
+        // Para el último estado hasta ahora (si no está cerrado)
+        const diffSecs = isClosed ? 0 : Math.max(0, Math.floor((Date.now() - new Date(current.createdAt).getTime()) / 1000))
+        if (stateTimes[stateKey] !== undefined) {
+          stateTimes[stateKey] += diffSecs
+        }
+      }
+    }
+
+    const totalLifecycleSecs = Math.max(
+      60,
+      Math.floor((new Date(lastEvent.createdAt).getTime() - new Date(firstEvent.createdAt).getTime()) / 1000)
+    )
+
+    // Tiempo hasta primera atención (desde creación hasta asignación o primer cambio de estado)
+    let firstResponseSecs: number | null = null
+    const firstAttention = ticketEvents.find((e) => e.action === 'asignacion' || (e.action === 'cambio_estado' && e.newStatus !== 'Open'))
+    if (firstAttention) {
+      firstResponseSecs = Math.max(
+        0,
+        Math.floor((new Date(firstAttention.createdAt).getTime() - new Date(firstEvent.createdAt).getTime()) / 1000)
+      )
+    }
+
+    return {
+      ticketId: selectedTicketId,
+      title: firstEvent.ticketTitle,
+      service: firstEvent.ticketService,
+      priority: firstEvent.ticketPriority,
+      currentStatus: lastEvent.newStatus || firstEvent.currentStatus,
+      creator: firstEvent.actorName,
+      assignee: lastEvent.newAssignee || 'Equipo TI',
+      totalEvents: ticketEvents.length,
+      createdAt: firstEvent.createdAt,
+      closedAt: isClosed ? lastEvent.createdAt : null,
+      totalLifecycleSecs,
+      firstResponseSecs,
+      stateTimes,
+    }
+  }, [ticketEvents, selectedTicketId])
+
   return (
-    <div className="flex-1 flex flex-col gap-6 max-w-7xl mx-auto w-full pb-12">
-      {/* 1. Header Banner */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
+    <div className="w-full flex flex-col gap-6 pb-20">
+      {/* Header Principal */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/80 pb-5">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-semibold flex items-center gap-1.5">
-              <Shield className="size-3 text-emerald-500" />
-              Cryptographic Audit Trail
-            </span>
-            <span className="text-xs text-muted-foreground font-mono">
-              SHA-256 Signed · Tamper-Evident Ledger
-            </span>
+          <div className="flex items-center gap-2.5 mb-1">
+            <div className="size-9 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-600 dark:text-cyan-400 shadow-sm">
+              <Shield className="size-4" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
+                Módulo de Auditoría & Trazabilidad
+                <span className="text-xs font-mono font-medium px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-500 border border-cyan-500/20">
+                  Desarrollo TI - Lander Inmobiliaria
+                </span>
+              </h1>
+            </div>
           </div>
-          <h1 className="mt-1.5 text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
-            Audit Logs & Security Ledger
-          </h1>
-          <p className="mt-1 text-xs sm:text-sm text-muted-foreground leading-relaxed">
-            Immutable log of all human interactions, automated self-healing events, IAM policy updates, and cryptographic rotations.
+          <p className="text-xs text-muted-foreground">
+            Registro cronológico inmutable del ciclo de vida de los tickets: creación, asignaciones y cambios de estado con usuario, fecha y hora.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <button
-            onClick={handleExport}
-            className="flex items-center gap-2 rounded-xl border border-border bg-card hover:bg-secondary px-4 py-2.5 text-xs font-semibold text-foreground transition-all shadow-sm"
+            onClick={fetchAuditEvents}
+            disabled={loading}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border border-border bg-card hover:bg-secondary text-foreground transition shadow-sm"
+            title="Refrescar auditoría"
           >
-            <Download className="size-4 text-muted-foreground" />
-            <span>Export JSON Ledger</span>
+            <RotateCcw className={`size-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <span>Actualizar</span>
+          </button>
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-cyan-600 hover:bg-cyan-500 text-white transition shadow-sm"
+          >
+            <Download className="size-3.5" />
+            <span>Exportar CSV</span>
           </button>
         </div>
       </div>
 
-      {/* 2. Filter Bar & Search */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-3">
-        {/* Category Filter Tabs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
-          {[
-            { id: 'all', label: 'All Events' },
-            { id: 'Security', label: 'Security & IAM' },
-            { id: 'Infrastructure', label: 'Infrastructure' },
-            { id: 'Policy', label: 'Policies' },
-            { id: 'AI', label: 'Autonomous AI' },
-          ].map((tab) => {
-            const isSelected = categoryFilter === tab.id
-            return (
-              <button
-                key={tab.id}
-                onClick={() => {
-                  setCategoryFilter(tab.id as any)
-                  setCurrentPage(1)
-                }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition select-none shrink-0 ${
-                  isSelected
-                    ? 'text-cyan-700 dark:text-cyan-300 bg-cyan-500/10 border border-cyan-500/40 shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60 border border-transparent'
-                }`}
-              >
-                {tab.label}
-              </button>
-            )
-          })}
+      {/* KPIs de Auditoría General */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="nexus-glass-card rounded-xl border border-border/70 p-4 bg-card shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-muted-foreground">Total de Eventos</span>
+            <div className="size-7 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-500">
+              <Layers className="size-3.5" />
+            </div>
+          </div>
+          <div className="text-2xl font-bold font-mono text-foreground mt-2">{metrics.totalEvents}</div>
+          <span className="text-[11px] text-muted-foreground">Acciones registradas</span>
         </div>
 
-        {/* Search filter */}
-        <div className="relative min-w-[260px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value)
-              setCurrentPage(1)
-            }}
-            placeholder="Search by event, actor, IP, hash..."
-            className="w-full rounded-xl border border-border bg-card/80 pl-9 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-cyan-500 transition"
-          />
+        <div className="nexus-glass-card rounded-xl border border-border/70 p-4 bg-card shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-muted-foreground">Tickets Auditados</span>
+            <div className="size-7 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-500">
+              <Tag className="size-3.5" />
+            </div>
+          </div>
+          <div className="text-2xl font-bold font-mono text-cyan-500 mt-2">{metrics.uniqueTickets}</div>
+          <span className="text-[11px] text-muted-foreground">Tickets con trazabilidad</span>
+        </div>
+
+        <div className="nexus-glass-card rounded-xl border border-border/70 p-4 bg-card shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-muted-foreground">Cambios de Estado</span>
+            <div className="size-7 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500">
+              <Activity className="size-3.5" />
+            </div>
+          </div>
+          <div className="text-2xl font-bold font-mono text-amber-500 mt-2">{metrics.statusChanges}</div>
+          <span className="text-[11px] text-muted-foreground">Transiciones operativas</span>
+        </div>
+
+        <div className="nexus-glass-card rounded-xl border border-border/70 p-4 bg-card shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-muted-foreground">Cierres y Resoluciones</span>
+            <div className="size-7 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+              <CheckCircle2 className="size-3.5" />
+            </div>
+          </div>
+          <div className="text-2xl font-bold font-mono text-emerald-500 mt-2">{metrics.closedTickets}</div>
+          <span className="text-[11px] text-muted-foreground">Tickets resueltos auditados</span>
         </div>
       </div>
 
-      {/* 3. Paginated Audit Table with Shimmer Skeleton */}
-      {loading ? (
-        <TableSkeleton rows={6} />
-      ) : paginatedEvents.length > 0 ? (
-        <div className="nexus-glass-card rounded-2xl overflow-hidden border border-border shadow-xl">
-          {/* Table Header */}
-          <div className="hidden lg:grid grid-cols-12 gap-4 px-5 py-3.5 bg-secondary/50 border-b border-border text-[11px] font-mono text-muted-foreground uppercase tracking-wider font-semibold">
-            <div className="col-span-2">LOG ID & HASH</div>
-            <div className="col-span-4">EVENT DESCRIPTION & SCOPE</div>
-            <div className="col-span-3">ACTOR / PRINCIPAL</div>
-            <div className="col-span-2">NODE & IP</div>
-            <div className="col-span-1 text-right">ACTION</div>
+      {/* Controles de Búsqueda y Filtros */}
+      <div className="nexus-glass-card rounded-xl border border-border/80 p-4 bg-card/60 shadow-sm space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          {/* Buscador */}
+          <div className="relative md:col-span-2">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Buscar por ticket (#NX-XXXX), usuario, título o detalle..."
+              className="w-full rounded-xl border border-border bg-background pl-9 pr-4 py-2 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500"
+            />
           </div>
 
-          {/* Table Rows */}
-          <div className="divide-y divide-border/60">
-            <AnimatePresence mode="popLayout">
-              {paginatedEvents.map((item) => {
-                const statusTone =
-                  item.status === 'Approved' || item.status === 'Success'
-                    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-                    : item.status === 'Audited'
-                    ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300'
-                    : 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300'
-
-                return (
-                  <motion.div
-                    key={item.id}
-                    layout
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.18 }}
-                    className="p-4 sm:p-5 lg:grid lg:grid-cols-12 gap-4 items-center hover:bg-secondary/30 transition-colors group"
-                  >
-                    {/* Log ID & Hash */}
-                    <div className="col-span-2 space-y-1 mb-2 lg:mb-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs font-bold text-cyan-600 dark:text-cyan-400">
-                          #{item.id}
-                        </span>
-                        <span className={`font-mono text-[9px] px-1.5 py-0.2 rounded border font-semibold ${statusTone}`}>
-                          {item.status}
-                        </span>
-                      </div>
-                      <div className="font-mono text-[10px] text-muted-foreground truncate">
-                        SHA256:{item.sha256.slice(0, 10)}...
-                      </div>
-                    </div>
-
-                    {/* Event Description */}
-                    <div className="col-span-4 min-w-0 mb-2 lg:mb-0">
-                      <div className="text-xs sm:text-sm font-semibold text-foreground truncate">
-                        {item.event}
-                      </div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="font-mono text-[10px] text-muted-foreground uppercase px-1.5 py-0.2 rounded bg-secondary">
-                          {item.category}
-                        </span>
-                        <span className="font-mono text-[10px] text-muted-foreground">
-                          {item.timestamp}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Actor */}
-                    <div className="col-span-3 min-w-0 mb-2 lg:mb-0">
-                      <div className="flex items-center gap-2">
-                        <div className="size-6 rounded-full bg-secondary border border-border flex items-center justify-center font-mono text-[9px] font-bold shrink-0 text-foreground">
-                          {item.actor.isDaemon ? '⚡' : item.actor.name.slice(0, 2).toUpperCase()}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-xs font-medium text-foreground truncate">
-                            {item.actor.name}
-                          </div>
-                          <div className="text-[10px] text-muted-foreground font-mono truncate">
-                            {item.actor.email}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Node & IP */}
-                    <div className="col-span-2 font-mono text-xs mb-2 lg:mb-0">
-                      <div className="text-muted-foreground text-[11px] truncate">
-                        {item.node}
-                      </div>
-                      <div className="text-[10px] text-muted-foreground/80">
-                        {item.sourceIp}
-                      </div>
-                    </div>
-
-                    {/* Inspect Action */}
-                    <div className="col-span-1 flex justify-end">
-                      <button
-                        onClick={() => setInspectEvent(item)}
-                        className="flex items-center gap-1.5 rounded-lg border border-border bg-card hover:bg-secondary px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-cyan-500/40 transition shadow-sm"
-                        title="Inspect cryptographic event payload"
-                      >
-                        <Eye className="size-3 text-cyan-500" />
-                        <span>View</span>
-                      </button>
-                    </div>
-                  </motion.div>
-                )
-              })}
-            </AnimatePresence>
+          {/* Filtro por Acción */}
+          <div>
+            <select
+              value={selectedAction}
+              onChange={(e) => setSelectedAction(e.target.value)}
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500"
+            >
+              <option value="all">Todas las Acciones</option>
+              <option value="creacion">Creación de Ticket</option>
+              <option value="cambio_estado">Cambio de Estado</option>
+              <option value="asignacion">Asignación de Técnico</option>
+              <option value="cierre">Cierre Definitivo</option>
+              <option value="edicion">Modificación de Datos</option>
+            </select>
           </div>
 
-          {/* Pagination Controls */}
-          <div className="flex items-center justify-between px-5 py-3.5 bg-secondary/30 border-t border-border/80 text-xs text-muted-foreground font-mono">
-            <div>
-              Showing Page <span className="text-foreground font-bold">{currentPage}</span> of{' '}
-              <span className="text-foreground font-bold">{totalPages}</span> ({filteredEvents.length} logs)
-            </div>
-
-            <div className="flex items-center gap-1.5">
-              <button
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                className="p-1.5 rounded-lg border border-border bg-card hover:bg-secondary disabled:opacity-30 disabled:pointer-events-none transition"
-                aria-label="Previous page"
-              >
-                <ChevronLeft className="size-3.5" />
-              </button>
-
-              {Array.from({ length: totalPages }).map((_, i) => (
-                <button
-                  key={i + 1}
-                  onClick={() => setCurrentPage(i + 1)}
-                  className={`size-7 rounded-lg text-xs font-semibold transition ${
-                    currentPage === i + 1
-                      ? 'bg-cyan-500 text-slate-950 font-bold shadow-[0_0_10px_rgba(6,182,212,0.4)]'
-                      : 'border border-border bg-card hover:bg-secondary text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  {i + 1}
-                </button>
+          {/* Filtro por Usuario / Actor */}
+          <div>
+            <select
+              value={selectedActor}
+              onChange={(e) => setSelectedActor(e.target.value)}
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500"
+            >
+              <option value="all">Todos los Usuarios</option>
+              {uniqueActors.map((actor) => (
+                <option key={actor} value={actor}>
+                  {actor}
+                </option>
               ))}
-
-              <button
-                disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                className="p-1.5 rounded-lg border border-border bg-card hover:bg-secondary disabled:opacity-30 disabled:pointer-events-none transition"
-                aria-label="Next page"
-              >
-                <ChevronRight className="size-3.5" />
-              </button>
-            </div>
+            </select>
           </div>
         </div>
-      ) : (
-        <EmptyState
-          icon={Lock}
-          badgeTone="emerald"
-          badgeText="AUDIT: NO EVENTS"
-          title="No Logs in Selected View"
-          description="Zero security or administrative audit records matched your current query criteria."
-          action={{
-            label: 'Clear Search & Filters',
-            icon: RotateCcw,
-            onClick: () => {
-              setSearchQuery('')
-              setCategoryFilter('all')
-              setCurrentPage(1)
-            },
-          }}
-        />
-      )}
+      </div>
 
-      {/* 4. Event Metadata Inspection Drawer / Modal */}
+      {/* Tabla de Trazabilidad General */}
+      <div className="nexus-glass-card rounded-xl border border-border/80 bg-card overflow-hidden shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-secondary/60 text-muted-foreground border-b border-border/80 font-semibold uppercase tracking-wider text-[10px]">
+              <tr>
+                <th className="py-3 px-4">Fecha y Hora</th>
+                <th className="py-3 px-4">Ticket</th>
+                <th className="py-3 px-4">Usuario Responsable</th>
+                <th className="py-3 px-4">Acción Realizada</th>
+                <th className="py-3 px-4">Transición / Detalle</th>
+                <th className="py-3 px-4">Permanencia</th>
+                <th className="py-3 px-4 text-right">Trazabilidad Individual</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/60">
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="py-12 text-center text-muted-foreground">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <div className="size-6 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+                      <span>Cargando trazabilidad de tickets...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : filteredEvents.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-12 text-center text-muted-foreground">
+                    No se encontraron registros de auditoría que coincidan con la búsqueda.
+                  </td>
+                </tr>
+              ) : (
+                filteredEvents.map((evt) => (
+                  <tr key={evt.id} className="hover:bg-secondary/30 transition-colors">
+                    {/* Fecha y Hora */}
+                    <td className="py-3 px-4 whitespace-nowrap font-mono text-[11px] text-foreground font-medium">
+                      <div className="flex items-center gap-1.5">
+                        <Clock className="size-3 text-muted-foreground shrink-0" />
+                        <span>{formatDateTime(evt.createdAt)}</span>
+                      </div>
+                    </td>
+
+                    {/* Ticket */}
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-cyan-600 dark:text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded-md text-[11px]">
+                          {evt.ticketId}
+                        </span>
+                        <span className="max-w-[180px] truncate text-foreground font-medium text-xs" title={evt.ticketTitle}>
+                          {evt.ticketTitle}
+                        </span>
+                      </div>
+                    </td>
+
+                    {/* Usuario Actor */}
+                    <td className="py-3 px-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <div className="size-6 rounded-full bg-secondary border border-border flex items-center justify-center text-[10px] font-bold text-foreground shrink-0">
+                          {evt.actorName
+                            ? evt.actorName
+                                .split(' ')
+                                .map((p) => p[0])
+                                .join('')
+                                .slice(0, 2)
+                                .toUpperCase()
+                            : 'OP'}
+                        </div>
+                        <span className="text-foreground font-semibold">{evt.actorName}</span>
+                      </div>
+                    </td>
+
+                    {/* Acción */}
+                    <td className="py-3 px-4 whitespace-nowrap">
+                      {getActionBadge(evt.action)}
+                    </td>
+
+                    {/* Transición o Detalle */}
+                    <td className="py-3 px-4">
+                      {evt.action === 'cambio_estado' ? (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {getStatusBadge(evt.previousStatus)}
+                          <ArrowRight className="size-3 text-muted-foreground" />
+                          {getStatusBadge(evt.newStatus)}
+                        </div>
+                      ) : evt.action === 'asignacion' ? (
+                        <div className="text-xs text-foreground">
+                          <span className="text-muted-foreground">{evt.previousAssignee || 'Sin Asignar'}</span> ➔ <strong className="text-violet-500">{evt.newAssignee}</strong>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground truncate max-w-[280px] block" title={evt.details}>
+                          {evt.details}
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Permanencia */}
+                    <td className="py-3 px-4 whitespace-nowrap text-xs text-muted-foreground font-mono">
+                      {evt.durationSeconds > 0 ? formatDuration(evt.durationSeconds) : '—'}
+                    </td>
+
+                    {/* Botón Trazabilidad Individual con Gráficos */}
+                    <td className="py-3 px-4 text-right whitespace-nowrap">
+                      <button
+                        onClick={() => handleOpenIndividualTraceability(evt.ticketId)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-secondary hover:bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30 transition shadow-sm"
+                      >
+                        <BarChart3 className="size-3.5" />
+                        <span>Ver con Gráficos</span>
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ========================================================= */}
+      {/* VISTA INDIVIDUAL DEL TICKET CON GRÁFICOS INTERACTIVOS */}
+      {/* ========================================================= */}
       <AnimatePresence>
-        {inspectEvent && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setInspectEvent(null)}
-              className="fixed inset-0 bg-black/60 backdrop-blur-md"
-            />
-
+        {showIndividualModal && individualTicketData && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-6 bg-background/80 backdrop-blur-md overflow-y-auto">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 15 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              className="relative w-full max-w-2xl overflow-hidden rounded-2xl border border-cyan-500/30 bg-popover/95 p-6 shadow-2xl backdrop-blur-2xl z-10 select-none text-foreground"
+              className="nexus-glass-card rounded-2xl border border-border/80 bg-card p-6 shadow-2xl w-full max-w-5xl max-h-[92vh] overflow-y-auto space-y-6"
             >
-              <div className="flex items-center justify-between border-b border-border pb-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex size-8 items-center justify-center rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-600 dark:text-cyan-400">
-                    <Code2 className="size-4" />
+              {/* Encabezado del Modal Individual */}
+              <div className="flex items-center justify-between border-b border-border/80 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="size-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-500 shadow-sm">
+                    <BarChart3 className="size-5" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-foreground">
-                      Audit Record Payload #{inspectEvent.id}
-                    </h3>
-                    <div className="font-mono text-[10px] text-muted-foreground">
-                      SHA256: {inspectEvent.sha256}
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-sm font-bold text-cyan-600 dark:text-cyan-400 bg-cyan-500/10 border border-cyan-500/30 px-2 py-0.5 rounded-md">
+                        {individualTicketData.ticketId}
+                      </span>
+                      <h2 className="text-base font-bold text-foreground">
+                        {individualTicketData.title}
+                      </h2>
                     </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Trazabilidad completa de ciclo de vida con gráficos interactivos y registro de tiempos
+                    </p>
                   </div>
                 </div>
 
-                <button
-                  onClick={() => setInspectEvent(null)}
-                  className="rounded-lg p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary transition"
-                >
-                  <X className="size-4" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <Link
+                    href={`/incidents/${encodeURIComponent(individualTicketData.ticketId.replace('#', ''))}`}
+                    className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-secondary hover:bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border border-border transition"
+                  >
+                    <ExternalLink className="size-3.5" />
+                    <span>Abrir Ticket</span>
+                  </Link>
+                  <button
+                    onClick={() => setShowIndividualModal(false)}
+                    className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition"
+                  >
+                    <X className="size-5" />
+                  </button>
+                </div>
               </div>
 
-              {/* JSON Metadata Payload viewer */}
-              <div className="mt-4 space-y-3">
-                <div className="text-xs font-semibold text-foreground">
-                  {inspectEvent.event}
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 p-3 rounded-xl border border-border bg-secondary/40 font-mono text-xs">
-                  <div>
-                    <span className="text-muted-foreground">Principal: </span>
-                    <span className="text-foreground">{inspectEvent.actor.email}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Source Node: </span>
-                    <span className="text-foreground">{inspectEvent.node}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Client IP: </span>
-                    <span className="text-foreground">{inspectEvent.sourceIp}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Recorded: </span>
-                    <span className="text-foreground">{inspectEvent.timestamp}</span>
-                  </div>
-                </div>
-
+              {/* Ficha Resumen del Ticket */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-secondary/30 border border-border/60 rounded-xl p-3 text-xs">
                 <div>
-                  <label className="block font-mono text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
-                    Decrypted Event Metadata Payload
-                  </label>
-                  <pre className="p-3.5 rounded-xl border border-border bg-black/40 font-mono text-[11px] text-cyan-400 overflow-x-auto">
-                    {JSON.stringify(inspectEvent.metadata, null, 2)}
-                  </pre>
+                  <span className="text-[11px] text-muted-foreground">Estado Actual:</span>
+                  <div className="mt-1">{getStatusBadge(individualTicketData.currentStatus)}</div>
+                </div>
+                <div>
+                  <span className="text-[11px] text-muted-foreground">Área / Servicio:</span>
+                  <div className="font-semibold text-foreground mt-1">{individualTicketData.service}</div>
+                </div>
+                <div>
+                  <span className="text-[11px] text-muted-foreground">Creado por:</span>
+                  <div className="font-semibold text-foreground mt-1">{individualTicketData.creator}</div>
+                </div>
+                <div>
+                  <span className="text-[11px] text-muted-foreground">Responsable:</span>
+                  <div className="font-semibold text-foreground mt-1">{individualTicketData.assignee}</div>
                 </div>
               </div>
 
-              <div className="mt-5 flex justify-end">
+              {/* GRÁFICO 1: Métricas y Tiempos de Rendimiento */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="nexus-glass-card rounded-xl border border-border/80 p-4 bg-card/60 shadow-sm">
+                  <div className="flex items-center justify-between text-muted-foreground mb-2">
+                    <span className="text-xs font-semibold">Tiempo Primera Atención</span>
+                    <Clock className="size-4 text-cyan-500" />
+                  </div>
+                  <div className="text-xl font-bold font-mono text-cyan-600 dark:text-cyan-400">
+                    {individualTicketData.firstResponseSecs !== null
+                      ? formatDuration(individualTicketData.firstResponseSecs)
+                      : 'En espera'}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1">Desde creación hasta inicio de atención</p>
+                </div>
+
+                <div className="nexus-glass-card rounded-xl border border-border/80 p-4 bg-card/60 shadow-sm">
+                  <div className="flex items-center justify-between text-muted-foreground mb-2">
+                    <span className="text-xs font-semibold">Ciclo de Vida Total</span>
+                    <TrendingUp className="size-4 text-emerald-500" />
+                  </div>
+                  <div className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                    {formatDuration(individualTicketData.totalLifecycleSecs)}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    {individualTicketData.closedAt ? 'Tiempo total hasta resolución final' : 'Tiempo acumulado en curso'}
+                  </p>
+                </div>
+
+                <div className="nexus-glass-card rounded-xl border border-border/80 p-4 bg-card/60 shadow-sm">
+                  <div className="flex items-center justify-between text-muted-foreground mb-2">
+                    <span className="text-xs font-semibold">Total Modificaciones</span>
+                    <Layers className="size-4 text-violet-500" />
+                  </div>
+                  <div className="text-xl font-bold font-mono text-violet-600 dark:text-violet-400">
+                    {individualTicketData.totalEvents} eventos
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1">Intervenciones y cambios auditados</p>
+                </div>
+              </div>
+
+              {/* GRÁFICO 2: Barra Visual de Permanencia por Estado */}
+              <div className="nexus-glass-card rounded-xl border border-border/80 p-5 bg-card/60 shadow-sm space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <BarChart3 className="size-4 text-cyan-500" />
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
+                      Gráfico de Permanencia por Estado
+                    </h3>
+                  </div>
+                  <span className="text-[11px] text-muted-foreground">Distribución del tiempo de vida</span>
+                </div>
+
+                {/* Barra segmentada visual */}
+                <div className="w-full h-4 rounded-full bg-secondary overflow-hidden flex shadow-inner">
+                  {Object.entries(individualTicketData.stateTimes).map(([state, secs]) => {
+                    const pct = individualTicketData.totalLifecycleSecs > 0
+                      ? Math.max(secs > 0 ? 5 : 0, Math.round((secs / individualTicketData.totalLifecycleSecs) * 100))
+                      : 0
+                    if (secs <= 0) return null
+
+                    let bgClass = 'bg-amber-500'
+                    if (state === 'In Progress') bgClass = 'bg-cyan-500'
+                    if (state === 'Blocked') bgClass = 'bg-violet-500'
+                    if (state === 'Resolved' || state === 'Closed') bgClass = 'bg-emerald-500'
+
+                    return (
+                      <div
+                        key={state}
+                        style={{ width: `${pct}%` }}
+                        className={`${bgClass} transition-all duration-500 relative group`}
+                        title={`${state}: ${formatDuration(secs)} (${pct}%)`}
+                      />
+                    )
+                  })}
+                </div>
+
+                {/* Leyenda y tiempos exactos */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+                  <div className="flex flex-col p-2.5 rounded-lg bg-secondary/40 border border-border/40">
+                    <span className="flex items-center gap-1.5 text-xs text-amber-500 font-semibold">
+                      <span className="size-2 rounded-full bg-amber-500" />
+                      Pendiente
+                    </span>
+                    <span className="font-mono text-sm font-bold text-foreground mt-1">
+                      {formatDuration(individualTicketData.stateTimes.Open || 0)}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col p-2.5 rounded-lg bg-secondary/40 border border-border/40">
+                    <span className="flex items-center gap-1.5 text-xs text-cyan-500 font-semibold">
+                      <span className="size-2 rounded-full bg-cyan-500" />
+                      En Proceso
+                    </span>
+                    <span className="font-mono text-sm font-bold text-foreground mt-1">
+                      {formatDuration(individualTicketData.stateTimes['In Progress'] || 0)}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col p-2.5 rounded-lg bg-secondary/40 border border-border/40">
+                    <span className="flex items-center gap-1.5 text-xs text-violet-500 font-semibold">
+                      <span className="size-2 rounded-full bg-violet-500" />
+                      En Revisión
+                    </span>
+                    <span className="font-mono text-sm font-bold text-foreground mt-1">
+                      {formatDuration(individualTicketData.stateTimes.Blocked || 0)}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col p-2.5 rounded-lg bg-secondary/40 border border-border/40">
+                    <span className="flex items-center gap-1.5 text-xs text-emerald-500 font-semibold">
+                      <span className="size-2 rounded-full bg-emerald-500" />
+                      Resuelto / Cerrado
+                    </span>
+                    <span className="font-mono text-sm font-bold text-foreground mt-1">
+                      {formatDuration(individualTicketData.stateTimes.Resolved || 0)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* GRÁFICO 3: Flujograma Cronológico de Ciclo de Vida (Stepper) */}
+              <div className="nexus-glass-card rounded-xl border border-border/80 p-5 bg-card/60 shadow-sm space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Activity className="size-4 text-cyan-500" />
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
+                      Flujograma de Trazabilidad & Cambios de Estado
+                    </h3>
+                  </div>
+                  <span className="text-[11px] text-muted-foreground font-mono">
+                    {ticketEvents.length} hitos registrados
+                  </span>
+                </div>
+
+                <div className="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-gradient-to-b before:from-cyan-500 before:via-violet-500 before:to-emerald-500">
+                  {ticketEvents.map((evt, idx) => {
+                    let dotColor = 'bg-cyan-500 ring-cyan-500/20'
+                    if (evt.action === 'creacion') dotColor = 'bg-blue-500 ring-blue-500/20'
+                    if (evt.action === 'asignacion') dotColor = 'bg-violet-500 ring-violet-500/20'
+                    if (evt.action === 'cierre' || evt.newStatus === 'Resolved') dotColor = 'bg-emerald-500 ring-emerald-500/20'
+
+                    return (
+                      <div key={evt.id} className="relative group">
+                        {/* Nodo Circular */}
+                        <div className={`absolute -left-6 top-1 size-3 rounded-full ${dotColor} ring-4 ring-background shadow-md`} />
+
+                        {/* Tarjeta del Hito */}
+                        <div className="p-3.5 rounded-xl bg-secondary/30 border border-border/70 hover:border-cyan-500/40 transition">
+                          <div className="flex items-center justify-between gap-2 flex-wrap mb-1.5">
+                            <div className="flex items-center gap-2">
+                              {getActionBadge(evt.action)}
+                              <span className="text-xs font-bold text-foreground">{evt.details}</span>
+                            </div>
+                            <span className="text-[11px] font-mono text-muted-foreground">
+                              {formatDateTime(evt.createdAt)}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border/30 mt-2">
+                            <div className="flex items-center gap-1.5">
+                              <User className="size-3.5 text-cyan-500" />
+                              <span>Usuario responsable: <strong className="text-foreground">{evt.actorName}</strong></span>
+                            </div>
+
+                            {evt.durationSeconds > 0 && (
+                              <div className="flex items-center gap-1 text-[11px] font-mono text-amber-500">
+                                <Clock className="size-3" />
+                                <span>Tiempo en estado previo: {formatDuration(evt.durationSeconds)}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Botones del Pie del Modal */}
+              <div className="flex items-center justify-between border-t border-border/80 pt-4">
+                <span className="text-xs text-muted-foreground font-mono">
+                  Trazabilidad verificada por Desarrollo TI - Lander Inmobiliaria
+                </span>
                 <button
-                  onClick={() => setInspectEvent(null)}
-                  className="rounded-xl border border-border bg-secondary/60 px-4 py-2 text-xs font-semibold text-foreground hover:bg-secondary transition"
+                  onClick={() => setShowIndividualModal(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-secondary hover:bg-secondary/80 text-foreground transition"
                 >
-                  Close Record
+                  Cerrar Trazabilidad
                 </button>
               </div>
             </motion.div>

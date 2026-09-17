@@ -1,61 +1,107 @@
 import { NextResponse } from 'next/server'
 import { db, initDatabase } from '@/lib/db'
+import { seedTicketAuditIfEmpty, recordTicketAuditEvent } from '@/lib/audit-logger'
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     await initDatabase()
-    const result = await db.execute('SELECT * FROM audit_logs ORDER BY rowid DESC LIMIT 100')
-    const logs = result.rows.map((row: any) => ({
-      id: row.id,
-      event: row.event,
-      category: row.category,
-      actor: {
-        name: row.actor_name,
-        email: row.actor_email,
-        isDaemon: Boolean(row.actor_is_daemon),
-      },
-      sourceIp: row.source_ip,
-      node: row.node,
-      status: row.status,
-      timestamp: row.timestamp,
-      sha256: row.sha256,
-      metadata: row.metadata_json ? JSON.parse(row.metadata_json) : {},
-    }))
-    return NextResponse.json(logs)
+    await seedTicketAuditIfEmpty()
+
+    const { searchParams } = new URL(request.url)
+    const ticketId = searchParams.get('ticketId')
+    const action = searchParams.get('action')
+    const actor = searchParams.get('actor')
+    const limit = Number(searchParams.get('limit')) || 300
+
+    let query = 'SELECT * FROM ticket_audit_events'
+    const conditions: string[] = []
+    const args: any[] = []
+
+    if (ticketId) {
+      const cleanId = ticketId.startsWith('#') ? ticketId : `#${ticketId}`
+      const rawId = cleanId.replace('#', '')
+      conditions.push('(ticket_id = ? OR ticket_id = ?)')
+      args.push(cleanId, rawId)
+    }
+
+    if (action && action !== 'all') {
+      conditions.push('action = ?')
+      args.push(action)
+    }
+
+    if (actor && actor !== 'all') {
+      conditions.push('actor_name = ?')
+      args.push(actor)
+    }
+
+    if (conditions.length > 0) {
+      query += ' WHERE ' + conditions.join(' AND ')
+    }
+
+    query += ' ORDER BY created_at DESC LIMIT ?'
+    args.push(limit)
+
+    const result = await db.execute({ sql: query, args })
+
+    // Also fetch incident titles to decorate the audit events
+    const incidentsRes = await db.execute('SELECT id, title, service, priority, status FROM incidents')
+    const incidentMap = new Map<string, any>()
+    incidentsRes.rows.forEach((r: any) => {
+      incidentMap.set(r.id, r)
+      incidentMap.set(String(r.id).replace('#', ''), r)
+    })
+
+    const events = result.rows.map((row: any) => {
+      const inc = incidentMap.get(row.ticket_id) || null
+      return {
+        id: row.id,
+        ticketId: row.ticket_id,
+        ticketTitle: inc?.title || 'Ticket de Soporte',
+        ticketPriority: inc?.priority || 'Medium',
+        ticketService: inc?.service || 'General',
+        currentStatus: inc?.status || row.new_status,
+        action: row.action,
+        previousStatus: row.previous_status,
+        newStatus: row.new_status,
+        previousAssignee: row.previous_assignee,
+        newAssignee: row.new_assignee,
+        actorName: row.actor_name,
+        actorEmail: row.actor_email,
+        details: row.details,
+        createdAt: row.created_at,
+        durationSeconds: Number(row.duration_seconds || 0),
+        metadata: row.metadata_json ? JSON.parse(row.metadata_json) : {},
+      }
+    })
+
+    return NextResponse.json(events)
   } catch (error: any) {
+    console.error('Error fetching ticket audit events:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
 
 export async function POST(request: Request) {
   try {
-    await initDatabase()
     const body = await request.json()
-    const id = body.id || `AUD-${Math.floor(1000 + Math.random() * 9000)}`
-
-    await db.execute({
-      sql: `INSERT INTO audit_logs (
-        id, event, category, actor_name, actor_email, actor_is_daemon,
-        source_ip, node, status, timestamp, sha256, metadata_json
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      args: [
-        id,
-        body.event,
-        body.category || 'Infrastructure',
-        body.actor?.name || 'System',
-        body.actor?.email || 'system@nexus.internal',
-        body.actor?.isDaemon ? 1 : 0,
-        body.sourceIp || '127.0.0.1',
-        body.node || 'primary-node',
-        body.status || 'Success',
-        body.timestamp || 'Just now',
-        body.sha256 || Math.random().toString(36).substring(2, 15),
-        JSON.stringify(body.metadata || {}),
-      ],
+    const id = await recordTicketAuditEvent({
+      ticketId: body.ticketId,
+      action: body.action,
+      previousStatus: body.previousStatus,
+      newStatus: body.newStatus,
+      previousAssignee: body.previousAssignee,
+      newAssignee: body.newAssignee,
+      actorName: body.actorName || 'Operador',
+      actorEmail: body.actorEmail,
+      details: body.details,
+      createdAt: body.createdAt,
+      durationSeconds: body.durationSeconds,
+      metadata: body.metadata,
     })
 
     return NextResponse.json({ success: true, id }, { status: 201 })
   } catch (error: any) {
+    console.error('Error creating ticket audit event:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

@@ -34,6 +34,7 @@ const navItems: NavItem[] = [
   { id: 'kanban', label: 'Tablero', href: '/kanban', icon: LayoutGrid },
   { id: 'new-ticket', label: 'Crear Ticket', href: '/tickets/new', icon: PlusCircle },
   { id: 'reports', label: 'Reportería & Métricas', href: '/reports', icon: BarChart3 },
+  { id: 'audit', label: 'Auditoría & Trazabilidad', href: '/audit-logs', icon: Shield },
   { id: 'admin', label: 'Panel de Control', href: '/admin', icon: Sliders },
 ]
 
@@ -66,6 +67,7 @@ export function NexusSidebar() {
       case 'kanban': return 'Tablero'
       case 'new-ticket': return 'Crear Ticket'
       case 'reports': return 'Reportería'
+      case 'audit': return 'Auditoría'
       case 'admin': return 'Panel de Control'
       default: return defaultLabel
     }

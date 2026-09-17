@@ -5,6 +5,7 @@ import {
   sendTicketAssignedEmail,
   handleIncidentUpdatedNotifications,
 } from '@/lib/email-sender'
+import { recordTicketAuditEvent } from '@/lib/audit-logger'
 
 export async function GET() {
   try {
@@ -140,8 +141,28 @@ export async function POST(request: Request) {
       ],
     })
 
+    // Registrar auditoría de creación de ticket
+    recordTicketAuditEvent({
+      ticketId: id,
+      action: 'creacion',
+      newStatus: status,
+      actorName: reporterName,
+      actorEmail: reporterEmail,
+      details: `Ticket registrado por ${reporterName} en servicio ${service} (${priority})`,
+    }).catch((err) => console.error('Error registrando auditoría de creación:', err))
+
     // Notificación por correo al responsable asignado al crear el ticket
     if (assigneeName && assigneeName !== 'Sin Asignar' && assigneeName !== 'Unassigned') {
+      recordTicketAuditEvent({
+        ticketId: id,
+        action: 'asignacion',
+        previousAssignee: 'Sin Asignar',
+        newAssignee: assigneeName,
+        actorName: reporterName,
+        actorEmail: reporterEmail,
+        details: `Asignación inicial al especialista ${assigneeName}`,
+      }).catch((err) => console.error('Error registrando auditoría de asignación inicial:', err))
+
       getAssigneeEmail(assigneeName).then((email) => {
         if (email && email.includes('@') && !email.endsWith('.internal')) {
           sendTicketAssignedEmail({
@@ -169,7 +190,7 @@ export async function PUT(request: Request) {
   try {
     await initDatabase()
     const body = await request.json()
-    const { id, title, status, priority, service, env, tag, assignedToMe, assignee } = body
+    const { id, title, status, priority, service, env, tag, assignedToMe, assignee, updatedBy, updatedByEmail } = body
 
     if (!id) {
       return NextResponse.json({ error: 'Missing incident id' }, { status: 400 })
@@ -229,8 +250,41 @@ export async function PUT(request: Request) {
       })
     }
 
-    // Notificaciones si hubo cambio de estado (atendido) o asignación de responsable
+    // Registrar trazabilidad de auditoría
     if (prevIncident) {
+      const actorName = updatedBy || (assignee?.name && assignee.name !== 'Sin Asignar' ? assignee.name : 'Operador TI')
+      const actorEmail = updatedByEmail || null
+
+      // Cambio de estado / Cierre
+      if (status && status !== prevIncident.status) {
+        const isClosed = status === 'Resolved' || status === 'Closed'
+        recordTicketAuditEvent({
+          ticketId: cleanId,
+          action: isClosed ? 'cierre' : 'cambio_estado',
+          previousStatus: prevIncident.status,
+          newStatus: status,
+          actorName,
+          actorEmail,
+          details: isClosed
+            ? `Ticket cerrado y resuelto por ${actorName}`
+            : `Estado cambiado de "${prevIncident.status}" a "${status}" por ${actorName}`,
+        }).catch((err) => console.error('Error registrando auditoría de estado:', err))
+      }
+
+      // Cambio de asignado
+      if (assignee?.name && assignee.name !== prevIncident.assignee_name) {
+        recordTicketAuditEvent({
+          ticketId: cleanId,
+          action: 'asignacion',
+          previousAssignee: prevIncident.assignee_name,
+          newAssignee: assignee.name,
+          actorName,
+          actorEmail,
+          details: `Asignado a "${assignee.name}" (Anterior: "${prevIncident.assignee_name}")`,
+        }).catch((err) => console.error('Error registrando auditoría de asignación:', err))
+      }
+
+      // Notificaciones por correo
       handleIncidentUpdatedNotifications({
         prevIncident,
         newStatus: status,

@@ -142,6 +142,21 @@ export async function initDatabase() {
         department TEXT DEFAULT 'General',
         color TEXT NOT NULL DEFAULT 'cyan',
         created_at TEXT NOT NULL
+      );`,
+      `CREATE TABLE IF NOT EXISTS ticket_audit_events (
+        id TEXT PRIMARY KEY,
+        ticket_id TEXT NOT NULL,
+        action TEXT NOT NULL,
+        previous_status TEXT,
+        new_status TEXT,
+        previous_assignee TEXT,
+        new_assignee TEXT,
+        actor_name TEXT NOT NULL,
+        actor_email TEXT,
+        details TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        duration_seconds INTEGER DEFAULT 0,
+        metadata_json TEXT
       );`
     ],
     'write'
