@@ -262,13 +262,37 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     return usersList.filter((u) => {
       const name = (u.name || '').toLowerCase()
       const email = (u.email || '').toLowerCase()
+      const roleLower = (u.role || '').trim().toLowerCase()
+
       const isSuperAdmin =
         name.includes('super administrador') ||
         name.includes('superadmin') ||
         email.includes('admin@nexus.local') ||
         u.id === 'usr-superadmin'
       const isInactive = u.status === 'inactivo' || u.status === 'inactive'
-      return !isSuperAdmin && !isInactive
+
+      // Excluir usuarios comunes / solicitantes sin funciones técnicas
+      const isStandardUser =
+        roleLower.startsWith('usuario') ||
+        roleLower.includes('solo tickets') ||
+        roleLower.includes('solicitante') ||
+        roleLower.includes('cliente')
+
+      // Solo perfiles y roles pertenecientes a TI / Soporte / Redes / Infra / DevOps
+      const hasTIMark =
+        /\bti\b/i.test(u.role || '') ||
+        roleLower.includes('soporte') ||
+        roleLower.includes('devops') ||
+        roleLower.includes('noc') ||
+        roleLower.includes('infraestructura') ||
+        roleLower.includes('redes') ||
+        roleLower.includes('seguridad inform') ||
+        roleLower.includes('técnico') ||
+        roleLower.includes('tecnico')
+
+      const isTI = hasTIMark && !isStandardUser
+
+      return !isSuperAdmin && !isInactive && isTI
     })
   }, [usersList])
 

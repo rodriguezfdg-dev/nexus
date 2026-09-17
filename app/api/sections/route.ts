@@ -4,6 +4,14 @@ import { db, initDatabase } from '@/lib/db'
 export async function GET() {
   try {
     await initDatabase()
+    try {
+      await db.execute(
+        "UPDATE sections SET name = 'Auditoría', description = '' WHERE LOWER(name) LIKE '%aditor%' OR LOWER(description) LIKE '%aditor%' OR LOWER(name) = 'auditoria' OR LOWER(description) = 'aditora'"
+      )
+      await db.execute(
+        "UPDATE sections SET description = '' WHERE LOWER(TRIM(name)) = LOWER(TRIM(description))"
+      )
+    } catch {}
     const result = await db.execute('SELECT * FROM sections ORDER BY name ASC')
     return NextResponse.json(result.rows)
   } catch (error: any) {

@@ -185,6 +185,23 @@ export async function initDatabase() {
     await db.execute("UPDATE users SET status = 'activo' WHERE status IS NULL OR status = ''")
   } catch {}
 
+  // Safe migration to correct typos in sections and incidents
+  try {
+    await db.execute(
+      "UPDATE sections SET name = 'Auditoría', description = '' WHERE LOWER(name) LIKE '%aditor%' OR LOWER(description) LIKE '%aditor%' OR LOWER(name) = 'auditoria' OR LOWER(description) = 'aditora'"
+    )
+  } catch {}
+  try {
+    await db.execute(
+      "UPDATE incidents SET service = 'Auditoría' WHERE LOWER(service) LIKE '%aditor%' OR LOWER(service) = 'auditoria'"
+    )
+  } catch {}
+  try {
+    await db.execute(
+      "UPDATE sections SET description = '' WHERE LOWER(TRIM(name)) = LOWER(TRIM(description))"
+    )
+  } catch {}
+
   // Seed default sections if empty
   const secRes = await db.execute('SELECT COUNT(*) as count FROM sections')
   if (Number(secRes.rows[0]?.count || 0) === 0) {

@@ -604,11 +604,24 @@ export default function IncidentDetailPage({
               {sections.length === 0 ? (
                 <option value={editService || 'Soporte General'}>{editService || 'Soporte General'}</option>
               ) : (
-                sections.map((sec) => (
-                  <option key={sec.id} value={sec.name}>
-                    {sec.name} {sec.description ? `(${sec.description})` : ''}
-                  </option>
-                ))
+                sections.map((sec) => {
+                  const isAuditoria =
+                    sec.name.toLowerCase().includes('aditor') ||
+                    sec.name.toLowerCase() === 'auditoria' ||
+                    sec.name.toLowerCase() === 'auditoría'
+                  const displayName = isAuditoria ? 'Auditoría' : sec.name
+                  const hasDistinctDesc =
+                    sec.description &&
+                    sec.description.trim().length > 0 &&
+                    sec.description.trim().toLowerCase() !== sec.name.trim().toLowerCase() &&
+                    !sec.description.toLowerCase().includes('aditor') &&
+                    !sec.description.toLowerCase().includes('auditor')
+                  return (
+                    <option key={sec.id} value={displayName}>
+                      {displayName} {hasDistinctDesc ? `(${sec.description})` : ''}
+                    </option>
+                  )
+                })
               )}
               {!sections.some((s) => s.name === editService) && editService && (
                 <option value={editService}>{editService}</option>
@@ -620,7 +633,7 @@ export default function IncidentDetailPage({
           <div className="space-y-2">
             <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
               <User className="size-3.5 text-cyan-500" />
-              Usuario Asignado
+              Usuario Asignado (Solo TI)
             </label>
             <select
               value={editAssigneeName}
@@ -637,6 +650,9 @@ export default function IncidentDetailPage({
                 <option value={editAssigneeName}>{editAssigneeName}</option>
               )}
             </select>
+            <span className="text-[11px] text-muted-foreground">
+              Solo se pueden asignar técnicos del equipo de TI.
+            </span>
           </div>
         </div>
 
