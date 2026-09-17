@@ -590,6 +590,23 @@ export default function LoginPage() {
                       )}
                     </button>
                   </div>
+
+                  <div className="text-center pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!resetEmail.trim()) {
+                          setErrorMessage('Ingresa primero tu correo para verificar el código.')
+                          return
+                        }
+                        setResetStep('verify')
+                        setErrorMessage(null)
+                      }}
+                      className="text-xs text-cyan-600 dark:text-cyan-400 hover:underline font-semibold cursor-pointer"
+                    >
+                      ¿Ya tienes tu código de verificación? Ingresarlo aquí directo →
+                    </button>
+                  </div>
                 </form>
               ) : (
                 <form onSubmit={handleConfirmResetPassword} className="space-y-3.5">

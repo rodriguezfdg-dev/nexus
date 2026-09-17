@@ -228,7 +228,11 @@ export async function POST(request: Request) {
       }
 
       const user: any = result.rows[0]
-      const resetCode = Math.floor(100000 + Math.random() * 900000).toString()
+      // Si el usuario ya tiene un código activo (por ejemplo, del registro reciente), reutilizarlo para no invalidar el correo que ya recibió
+      let resetCode = user.verification_code
+      if (!resetCode) {
+        resetCode = Math.floor(100000 + Math.random() * 900000).toString()
+      }
       const codeExpires = new Date(Date.now() + 60 * 60 * 1000).toISOString()
 
       await db.execute({
