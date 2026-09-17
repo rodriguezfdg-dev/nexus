@@ -71,25 +71,17 @@ export async function sendSmtpEmail(options: SmtpOptions): Promise<SmtpResult> {
       sock.on('data', (chunk) => {
         buffer += chunk.toString('utf-8')
 
-        // SMTP responses end with "\r\n" and the line has status code: "250 ..." or continuation "250-..."
         const lines = buffer.split('\r\n')
-        // If last element is not complete, keep it in buffer
         buffer = lines.pop() || ''
 
         for (const line of lines) {
           if (!line.trim()) continue
 
-          // Check if it's a multiline response (e.g., "250-...")
-          const isMultiline = /^\d{3}-/.test(line)
-          const codeMatch = line.match(/^(\d{3})\s/)
+          const codeMatch = line.match(/^(\d{3})(?:[ -]|$)/)
+          if (!codeMatch) continue
+          if (line.charAt(3) === '-') continue // multiline continuation (e.g. 250-...)
 
-          if (isMultiline) {
-            // Continuation line, wait for final line with code followed by space
-            continue
-          }
-
-          const statusCode = codeMatch ? parseInt(codeMatch[1], 10) : parseInt(line.slice(0, 3), 10)
-
+          const statusCode = parseInt(codeMatch[1], 10)
           handleResponse(statusCode, line)
         }
       })
@@ -135,7 +127,8 @@ export async function sendSmtpEmail(options: SmtpOptions): Promise<SmtpResult> {
           case 'SENT_STARTTLS':
             if (code === 220) {
               // Upgrade socket to TLS
-              socket.removeAllListeners('data')
+              socket.removeAllListeners()
+              buffer = ''
               const secureSocket = tls.connect(
                 {
                   socket,
@@ -143,20 +136,13 @@ export async function sendSmtpEmail(options: SmtpOptions): Promise<SmtpResult> {
                   rejectUnauthorized: false,
                 },
                 () => {
-                  socket = secureSocket
-                  isTls = true
-                  setupListeners(socket)
                   step = 'SENT_EHLO_2'
                   sendLine('EHLO localhost')
                 }
               )
-              secureSocket.on('error', (err) => {
-                cleanup()
-                resolve({
-                  success: false,
-                  message: `Error en negociación TLS: ${err.message}`,
-                })
-              })
+              socket = secureSocket
+              isTls = true
+              setupListeners(secureSocket)
             } else {
               cleanup()
               resolve({
@@ -332,13 +318,9 @@ export async function sendSmtpEmail(options: SmtpOptions): Promise<SmtpResult> {
 
     // Start initial socket connection
     if (isTls) {
-      socket = tls.connect({ host, port, rejectUnauthorized: false }, () => {
-        setupListeners(socket)
-      })
+      socket = tls.connect({ host, port, rejectUnauthorized: false })
     } else {
-      socket = net.createConnection({ host, port }, () => {
-        setupListeners(socket)
-      })
+      socket = net.createConnection({ host, port })
     }
 
     setupListeners(socket)
