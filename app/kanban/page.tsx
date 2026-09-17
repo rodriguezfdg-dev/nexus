@@ -22,6 +22,11 @@ import {
   Sparkles,
   RefreshCw,
   Paperclip,
+  Pencil,
+  Trash2,
+  Check,
+  X,
+  Loader2,
 } from 'lucide-react'
 import { useNexusData, Incident, IncidentStatus, Priority } from '@/lib/data-context'
 import { useToast } from '@/components/nexus/toast-provider'
@@ -71,14 +76,81 @@ const COLUMNS: ColumnDef[] = [
 ]
 
 export default function KanbanPage() {
-  const { incidents, sections, updateIncident, refresh, loading } = useNexusData()
-  const { success, info } = useToast()
+  const { incidents, sections, usersList, updateIncident, deleteIncident, refresh, loading } = useNexusData()
+  const { success, info, error } = useToast()
 
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedSection, setSelectedSection] = useState<string>('all')
   const [selectedPriority, setSelectedPriority] = useState<string>('all')
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [selectedTicketDetail, setSelectedTicketDetail] = useState<Incident | null>(null)
+
+  // Edit in modal state
+  const [isEditingInModal, setIsEditingInModal] = useState(false)
+  const [editTitle, setEditTitle] = useState('')
+  const [editPriority, setEditPriority] = useState<Priority>('Medium')
+  const [editStatus, setEditStatus] = useState<IncidentStatus>('Open')
+  const [editService, setEditService] = useState('')
+  const [editAssignee, setEditAssignee] = useState('')
+  const [isSavingEdit, setIsSavingEdit] = useState(false)
+
+  const handleStartEdit = (ticket: Incident) => {
+    setEditTitle(ticket.title)
+    setEditPriority(ticket.priority)
+    setEditStatus(ticket.status)
+    setEditService(ticket.service)
+    setEditAssignee(ticket.assignee.name)
+    setIsEditingInModal(true)
+  }
+
+  const handleSaveModalEdit = async () => {
+    if (!selectedTicketDetail || !editTitle.trim()) return
+    setIsSavingEdit(true)
+    try {
+      const selectedUser = usersList.find((u) => u.name === editAssignee)
+      const initials = editAssignee
+        ? editAssignee.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase()
+        : 'UN'
+
+      await updateIncident(selectedTicketDetail.id, {
+        title: editTitle.trim(),
+        priority: editPriority,
+        status: editStatus,
+        service: editService,
+        tag: editService,
+        assignee: {
+          name: editAssignee || 'Sin Asignar',
+          initials,
+          status: 'online',
+        },
+      })
+
+      setSelectedTicketDetail((prev) =>
+        prev
+          ? {
+              ...prev,
+              title: editTitle.trim(),
+              priority: editPriority,
+              status: editStatus,
+              service: editService,
+              tag: editService,
+              assignee: {
+                name: editAssignee || 'Sin Asignar',
+                initials,
+                status: 'online',
+              },
+            }
+          : null
+      )
+
+      setIsEditingInModal(false)
+      success('Ticket Actualizado', `El ticket ${selectedTicketDetail.id} fue modificado exitosamente.`)
+    } catch (err: any) {
+      error('Error al Guardar', err.message || 'No se pudo actualizar el ticket.')
+    } finally {
+      setIsSavingEdit(false)
+    }
+  }
 
   // Filtered tickets
   const filteredIncidents = useMemo(() => {
@@ -397,68 +469,201 @@ export default function KanbanPage() {
                 </button>
               </div>
 
-              <div>
-                <h2 className="text-lg font-bold text-foreground">{selectedTicketDetail.title}</h2>
-                <div className="mt-2 text-xs text-muted-foreground space-y-1">
-                  <p><strong>Sección / Servicio:</strong> {selectedTicketDetail.service}</p>
-                  <p><strong>Entorno:</strong> {selectedTicketDetail.env}</p>
-                  <p><strong>Asignado a:</strong> {selectedTicketDetail.assignee.name}</p>
-                  <p><strong>Reportado por:</strong> {selectedTicketDetail.reporter?.name || 'Sistema'}</p>
-                  <p><strong>Fecha:</strong> {selectedTicketDetail.createdTime}</p>
-                </div>
-              </div>
+              {isEditingInModal ? (
+                <div className="space-y-3.5 text-xs">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-muted-foreground mb-1">
+                      Título del Ticket *
+                    </label>
+                    <input
+                      type="text"
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                    />
+                  </div>
 
-              {selectedTicketDetail.aiCopilot?.summary && (
-                <div className="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-xs text-foreground space-y-1">
-                  <span className="font-bold flex items-center gap-1 text-cyan-600 dark:text-cyan-400">
-                    <Sparkles className="size-3.5" />
-                    Diagnóstico Automático
-                  </span>
-                  <p className="text-muted-foreground">{selectedTicketDetail.aiCopilot.summary}</p>
-                </div>
-              )}
-
-              {/* Attachments Section in Modal */}
-              {selectedTicketDetail.attachments && selectedTicketDetail.attachments.length > 0 && (
-                <div className="space-y-2 pt-1 border-t border-border">
-                  <span className="font-bold text-xs text-foreground flex items-center gap-1.5">
-                    <Paperclip className="size-3.5 text-cyan-500" />
-                    Archivos Adjuntos ({selectedTicketDetail.attachments.length})
-                  </span>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {selectedTicketDetail.attachments.map((att) => (
-                      <a
-                        key={att.id}
-                        href={`/api/attachments/${att.id}/download`}
-                        download={att.filename}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center justify-between gap-2 p-2 rounded-lg border border-border bg-secondary/30 hover:border-cyan-500 hover:bg-cyan-500/10 transition text-xs font-mono group"
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-muted-foreground mb-1">
+                        Prioridad
+                      </label>
+                      <select
+                        value={editPriority}
+                        onChange={(e) => setEditPriority(e.target.value as Priority)}
+                        className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-cyan-500"
                       >
-                        <span className="truncate group-hover:text-cyan-500">{att.filename}</span>
-                        <span className="text-[10px] text-muted-foreground shrink-0">Descargar</span>
-                      </a>
-                    ))}
+                        <option value="Critical">Crítica (P1)</option>
+                        <option value="High">Alta (P2)</option>
+                        <option value="Medium">Media (P3)</option>
+                        <option value="Low">Baja (P4)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-muted-foreground mb-1">
+                        Columna / Estado
+                      </label>
+                      <select
+                        value={editStatus}
+                        onChange={(e) => setEditStatus(e.target.value as IncidentStatus)}
+                        className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                      >
+                        <option value="Open">Pendiente</option>
+                        <option value="In Progress">En Progreso</option>
+                        <option value="Blocked">En Revisión</option>
+                        <option value="Resolved">Cerrado / Resuelto</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-muted-foreground mb-1">
+                        Sección / Servicio
+                      </label>
+                      <select
+                        value={editService}
+                        onChange={(e) => setEditService(e.target.value)}
+                        className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                      >
+                        {sections.map((sec) => (
+                          <option key={sec.id} value={sec.name}>
+                            {sec.name}
+                          </option>
+                        ))}
+                        {!sections.some((s) => s.name === editService) && editService && (
+                          <option value={editService}>{editService}</option>
+                        )}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-muted-foreground mb-1">
+                        Asignado a
+                      </label>
+                      <select
+                        value={editAssignee}
+                        onChange={(e) => setEditAssignee(e.target.value)}
+                        className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                      >
+                        <option value="">Sin Asignar</option>
+                        {usersList.map((u) => (
+                          <option key={u.id} value={u.name}>
+                            {u.name} ({u.role})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 flex items-center justify-end gap-2 border-t border-border">
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingInModal(false)}
+                      className="px-3.5 py-1.5 rounded-xl border border-border text-xs text-muted-foreground hover:text-foreground transition"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveModalEdit}
+                      disabled={isSavingEdit}
+                      className="flex items-center gap-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 px-4 py-1.5 text-xs font-bold text-white shadow-md transition disabled:opacity-50"
+                    >
+                      {isSavingEdit ? (
+                        <>
+                          <Loader2 className="size-3.5 animate-spin" />
+                          <span>Guardando...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Check className="size-3.5" />
+                          <span>Guardar Cambios</span>
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
+              ) : (
+                <>
+                  <div>
+                    <h2 className="text-lg font-bold text-foreground">{selectedTicketDetail.title}</h2>
+                    <div className="mt-2 text-xs text-muted-foreground space-y-1">
+                      <p><strong>Sección / Servicio:</strong> {selectedTicketDetail.service}</p>
+                      <p><strong>Entorno:</strong> {selectedTicketDetail.env}</p>
+                      <p><strong>Asignado a:</strong> {selectedTicketDetail.assignee.name}</p>
+                      <p><strong>Reportado por:</strong> {selectedTicketDetail.reporter?.name || 'Sistema'}</p>
+                      <p><strong>Fecha:</strong> {selectedTicketDetail.createdTime}</p>
+                    </div>
+                  </div>
+
+                  {selectedTicketDetail.aiCopilot?.summary && (
+                    <div className="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-xs text-foreground space-y-1">
+                      <span className="font-bold flex items-center gap-1 text-cyan-600 dark:text-cyan-400">
+                        <Sparkles className="size-3.5" />
+                        Diagnóstico Automático
+                      </span>
+                      <p className="text-muted-foreground">{selectedTicketDetail.aiCopilot.summary}</p>
+                    </div>
+                  )}
+
+                  {/* Attachments Section in Modal */}
+                  {selectedTicketDetail.attachments && selectedTicketDetail.attachments.length > 0 && (
+                    <div className="space-y-2 pt-1 border-t border-border">
+                      <span className="font-bold text-xs text-foreground flex items-center gap-1.5">
+                        <Paperclip className="size-3.5 text-cyan-500" />
+                        Archivos Adjuntos ({selectedTicketDetail.attachments.length})
+                      </span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {selectedTicketDetail.attachments.map((att) => (
+                          <a
+                            key={att.id}
+                            href={`/api/attachments/${att.id}/download`}
+                            download={att.filename}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center justify-between gap-2 p-2 rounded-lg border border-border bg-secondary/30 hover:border-cyan-500 hover:bg-cyan-500/10 transition text-xs font-mono group"
+                          >
+                            <span className="truncate group-hover:text-cyan-500">{att.filename}</span>
+                            <span className="text-[10px] text-muted-foreground shrink-0">Descargar</span>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-border">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleStartEdit(selectedTicketDetail)}
+                        className="flex items-center gap-1.5 rounded-xl border border-cyan-500/40 bg-cyan-500/10 px-3.5 py-2 text-xs font-bold text-cyan-700 dark:text-cyan-300 hover:bg-cyan-500/20 transition cursor-pointer"
+                      >
+                        <Pencil className="size-3.5" />
+                        <span>Editar Ticket</span>
+                      </button>
+
+                      <Link
+                        href={`/incidents/${selectedTicketDetail.id.replace('#', '')}`}
+                        className="quantum-gradient-btn flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white shadow transition"
+                      >
+                        <span>Ver Ticket Completo</span>
+                        <ArrowRight className="size-3.5" />
+                      </Link>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        setSelectedTicketDetail(null)
+                        setIsEditingInModal(false)
+                      }}
+                      className="px-4 py-2 rounded-xl border border-border text-xs font-medium text-foreground hover:bg-muted transition cursor-pointer"
+                    >
+                      Cerrar
+                    </button>
+                  </div>
+                </>
               )}
-
-              <div className="pt-2 flex items-center justify-between gap-2 border-t border-border">
-                <Link
-                  href={`/incidents/${selectedTicketDetail.id.replace('#', '')}`}
-                  className="quantum-gradient-btn flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white shadow transition"
-                >
-                  <span>Ver Ticket Completo</span>
-                  <ArrowRight className="size-3.5" />
-                </Link>
-
-                <button
-                  onClick={() => setSelectedTicketDetail(null)}
-                  className="px-4 py-2 rounded-xl border border-border text-xs font-medium text-foreground hover:bg-muted transition"
-                >
-                  Cerrar
-                </button>
-              </div>
             </motion.div>
           </div>
         )}
