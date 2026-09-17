@@ -328,34 +328,17 @@ export function NexusShell({ children }: { children: React.ReactNode }) {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-foreground mb-1">
-                      Entorno
-                    </label>
-                    <select
-                      value={ticketEnv}
-                      onChange={(e) => setTicketEnv(e.target.value as any)}
-                      className="w-full rounded-lg border border-border bg-secondary/50 px-2.5 py-2 text-xs text-foreground outline-none focus:border-cyan-500"
-                    >
-                      <option value="Production">Producción</option>
-                      <option value="Staging">Staging / Pruebas</option>
-                      <option value="Edge">Edge</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-foreground mb-1">
-                      Responsable Asignado (Opcional)
-                    </label>
-                    <input
-                      type="text"
-                      value={ticketAssignee}
-                      onChange={(e) => setTicketAssignee(e.target.value)}
-                      placeholder="ej. Juan Pérez"
-                      className="w-full rounded-lg border border-border bg-secondary/50 px-2.5 py-2 text-xs text-foreground outline-none focus:border-cyan-500"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-xs font-semibold text-foreground mb-1">
+                    Responsable Asignado (Opcional)
+                  </label>
+                  <input
+                    type="text"
+                    value={ticketAssignee}
+                    onChange={(e) => setTicketAssignee(e.target.value)}
+                    placeholder="ej. Juan Pérez"
+                    className="w-full rounded-lg border border-border bg-secondary/50 px-2.5 py-2 text-xs text-foreground outline-none focus:border-cyan-500"
+                  />
                 </div>
 
                 <div className="flex justify-end gap-2 pt-2 border-t border-border">

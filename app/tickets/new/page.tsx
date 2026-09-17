@@ -294,59 +294,39 @@ export default function NewTicketPage() {
           </div>
         </div>
 
-        {/* 2-Column Grid: Priority & Environment */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {/* Priority */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-              <Flame className="size-3.5 text-rose-500" />
-              Nivel de Prioridad *
-            </label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {(['Low', 'Medium', 'High', 'Critical'] as Priority[]).map((lvl) => {
-                const isSelected = priority === lvl
-                const labels: Record<Priority, string> = {
-                  Low: 'Baja',
-                  Medium: 'Media',
-                  High: 'Alta',
-                  Critical: 'Crítica',
-                }
-                const colors: Record<Priority, string> = {
-                  Low: isSelected ? 'bg-emerald-500/20 border-emerald-500 text-emerald-600 dark:text-emerald-400' : 'border-border text-muted-foreground',
-                  Medium: isSelected ? 'bg-blue-500/20 border-blue-500 text-blue-600 dark:text-blue-400' : 'border-border text-muted-foreground',
-                  High: isSelected ? 'bg-amber-500/20 border-amber-500 text-amber-600 dark:text-amber-400' : 'border-border text-muted-foreground',
-                  Critical: isSelected ? 'bg-rose-500/20 border-rose-500 text-rose-600 dark:text-rose-400' : 'border-border text-muted-foreground',
-                }
+        {/* Priority */}
+        <div className="space-y-2">
+          <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+            <Flame className="size-3.5 text-rose-500" />
+            Nivel de Prioridad *
+          </label>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            {(['Low', 'Medium', 'High', 'Critical'] as Priority[]).map((lvl) => {
+              const isSelected = priority === lvl
+              const labels: Record<Priority, string> = {
+                Low: 'Baja',
+                Medium: 'Media',
+                High: 'Alta',
+                Critical: 'Crítica',
+              }
+              const colors: Record<Priority, string> = {
+                Low: isSelected ? 'bg-emerald-500/20 border-emerald-500 text-emerald-600 dark:text-emerald-400' : 'border-border text-muted-foreground hover:text-foreground',
+                Medium: isSelected ? 'bg-blue-500/20 border-blue-500 text-blue-600 dark:text-blue-400' : 'border-border text-muted-foreground hover:text-foreground',
+                High: isSelected ? 'bg-amber-500/20 border-amber-500 text-amber-600 dark:text-amber-400' : 'border-border text-muted-foreground hover:text-foreground',
+                Critical: isSelected ? 'bg-rose-500/20 border-rose-500 text-rose-600 dark:text-rose-400' : 'border-border text-muted-foreground hover:text-foreground',
+              }
 
-                return (
-                  <button
-                    key={lvl}
-                    type="button"
-                    onClick={() => setPriority(lvl)}
-                    className={`rounded-xl border py-2 text-xs font-bold text-center transition ${colors[lvl]}`}
-                  >
-                    {labels[lvl]}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Environment */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-              <Sliders className="size-3.5 text-amber-500" />
-              Entorno / Alcance
-            </label>
-            <select
-              value={environment}
-              onChange={(e) => setEnvironment(e.target.value as any)}
-              className="w-full rounded-xl border border-border bg-background/80 px-3.5 py-2.5 text-sm text-foreground outline-none focus:border-cyan-500 transition font-medium"
-            >
-              <option value="Production">Producción (Servicio Activo)</option>
-              <option value="Staging">Pruebas / Staging</option>
-              <option value="Edge">Sede Remota / Edge</option>
-            </select>
+              return (
+                <button
+                  key={lvl}
+                  type="button"
+                  onClick={() => setPriority(lvl)}
+                  className={`rounded-xl border py-2.5 text-xs font-bold text-center transition cursor-pointer ${colors[lvl]}`}
+                >
+                  {labels[lvl]}
+                </button>
+              )
+            })}
           </div>
         </div>
 

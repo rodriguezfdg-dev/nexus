@@ -594,7 +594,6 @@ export default function KanbanPage() {
                     <h2 className="text-lg font-bold text-foreground">{selectedTicketDetail.title}</h2>
                     <div className="mt-2 text-xs text-muted-foreground space-y-1.5">
                       <p><strong>Sección / Servicio:</strong> {selectedTicketDetail.service}</p>
-                      <p><strong>Entorno:</strong> {selectedTicketDetail.env}</p>
                       <p><strong>Asignado a:</strong> {selectedTicketDetail.assignee.name}</p>
                       <p className="flex items-center gap-1.5 flex-wrap">
                         <strong>Creado por:</strong>

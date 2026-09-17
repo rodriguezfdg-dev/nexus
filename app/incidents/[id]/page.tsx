@@ -630,55 +630,35 @@ export default function IncidentDetailPage({
           </div>
         </div>
 
-        {/* 2-Column Grid: Priority Pills & Environment */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {/* Priority Pills */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-              <Flame className="size-3.5 text-rose-500" />
-              Nivel de Prioridad *
-            </label>
-            <div className="grid grid-cols-4 gap-2">
-              {[
-                { id: 'Low', label: 'Baja' },
-                { id: 'Medium', label: 'Media' },
-                { id: 'High', label: 'Alta' },
-                { id: 'Critical', label: 'Crítica' },
-              ].map((p) => {
-                const isActive = editPriority === p.id
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => setEditPriority(p.id as Priority)}
-                    className={`rounded-xl border py-2 text-xs font-bold transition flex items-center justify-center cursor-pointer ${
-                      isActive
-                        ? 'border-cyan-500 bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 shadow-sm'
-                        : 'border-border bg-background/60 text-muted-foreground hover:text-foreground hover:bg-muted/40'
-                    }`}
-                  >
-                    {p.label}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Environment */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-              <Sliders className="size-3.5 text-amber-500" />
-              Entorno / Alcance
-            </label>
-            <select
-              value={editEnv}
-              onChange={(e) => setEditEnv(e.target.value as any)}
-              className="w-full rounded-xl border border-border bg-background/80 px-3.5 py-2.5 text-sm text-foreground outline-none focus:border-cyan-500 transition font-medium"
-            >
-              <option value="Production">Producción (Servicio Activo)</option>
-              <option value="Staging">Pruebas / Staging</option>
-              <option value="Edge">Sede Remota / Edge</option>
-            </select>
+        {/* Priority Pills */}
+        <div className="space-y-2">
+          <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+            <Flame className="size-3.5 text-rose-500" />
+            Nivel de Prioridad *
+          </label>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            {[
+              { id: 'Low', label: 'Baja' },
+              { id: 'Medium', label: 'Media' },
+              { id: 'High', label: 'Alta' },
+              { id: 'Critical', label: 'Crítica' },
+            ].map((p) => {
+              const isActive = editPriority === p.id
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => setEditPriority(p.id as Priority)}
+                  className={`rounded-xl border py-2.5 text-xs font-bold transition flex items-center justify-center cursor-pointer ${
+                    isActive
+                      ? 'border-cyan-500 bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 shadow-sm'
+                      : 'border-border bg-background/60 text-muted-foreground hover:text-foreground hover:bg-muted/40'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              )
+            })}
           </div>
         </div>
 
@@ -822,41 +802,24 @@ export default function IncidentDetailPage({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-muted-foreground mb-1">
-                      Servicio / Sección
-                    </label>
-                    <select
-                      value={editService}
-                      onChange={(e) => setEditService(e.target.value)}
-                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500"
-                    >
-                      {sections.map((sec) => (
-                        <option key={sec.id} value={sec.name}>
-                          {sec.name}
-                        </option>
-                      ))}
-                      {!sections.some((s) => s.name === editService) && editService && (
-                        <option value={editService}>{editService}</option>
-                      )}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-muted-foreground mb-1">
-                      Entorno
-                    </label>
-                    <select
-                      value={editEnv}
-                      onChange={(e) => setEditEnv(e.target.value as any)}
-                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500"
-                    >
-                      <option value="Production">Production</option>
-                      <option value="Staging">Staging</option>
-                      <option value="Edge">Edge</option>
-                    </select>
-                  </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-muted-foreground mb-1">
+                    Servicio / Sección
+                  </label>
+                  <select
+                    value={editService}
+                    onChange={(e) => setEditService(e.target.value)}
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500"
+                  >
+                    {sections.map((sec) => (
+                      <option key={sec.id} value={sec.name}>
+                        {sec.name}
+                      </option>
+                    ))}
+                    {!sections.some((s) => s.name === editService) && editService && (
+                      <option value={editService}>{editService}</option>
+                    )}
+                  </select>
                 </div>
 
                 <div>
