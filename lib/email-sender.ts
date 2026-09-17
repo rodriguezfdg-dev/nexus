@@ -122,7 +122,7 @@ export async function sendVerificationCodeEmail(
         Desarrollo TI <span style="color: #22d3ee;">- Lander Inmobiliaria</span>
       </h1>
       <p style="margin: 4px 0 0 0; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: #9ca3af;">
-        Operaciones TI & Mesa de Ayuda
+        Desarrollo TI & Verificación de Cuenta
       </p>
     </div>
 
@@ -251,7 +251,7 @@ export async function sendTicketAssignedEmail({
         Desarrollo TI <span style="color: #22d3ee;">- Lander Inmobiliaria</span>
       </h1>
       <p style="margin: 4px 0 0 0; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: #9ca3af;">
-        Asignación de Tickets de Soporte
+        Desarrollo TI & Asignación de Tickets
       </p>
     </div>
 
@@ -388,7 +388,7 @@ export async function sendTicketStatusChangedEmail({
         Desarrollo TI <span style="color: #22d3ee;">- Lander Inmobiliaria</span>
       </h1>
       <p style="margin: 4px 0 0 0; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: #9ca3af;">
-        Mesa de Ayuda & Actualización de Estado
+        Desarrollo TI & Actualización de Estado
       </p>
     </div>
 
