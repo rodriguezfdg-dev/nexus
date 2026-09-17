@@ -41,6 +41,11 @@ import {
   Pencil,
   Trash2,
   Loader2,
+  FileText,
+  Tag,
+  User,
+  Sliders,
+  ImageIcon,
 } from 'lucide-react'
 
 export default function IncidentDetailPage({
@@ -87,6 +92,7 @@ export default function IncidentDetailPage({
   const [editService, setEditService] = useState('')
   const [editEnv, setEditEnv] = useState<'Production' | 'Staging' | 'Edge'>('Production')
   const [editAssigneeName, setEditAssigneeName] = useState('')
+  const [editDescription, setEditDescription] = useState('')
   const [isSavingEdit, setIsSavingEdit] = useState(false)
 
   // Delete ticket state
@@ -116,6 +122,13 @@ export default function IncidentDetailPage({
             setIncident({ ...data, attachments: atts })
             setCurrentStatus(data.status)
             setSlaRemaining(data.slaSecondsRemaining)
+            setEditTitle(data.title || '')
+            setEditPriority(data.priority || 'Medium')
+            setEditStatus(data.status || 'Open')
+            setEditService(data.service || '')
+            setEditEnv(data.env || 'Production')
+            setEditAssigneeName(data.assignee?.name || '')
+            setEditDescription(data.description || '')
             return
           }
         }
@@ -127,6 +140,13 @@ export default function IncidentDetailPage({
         setIncident(data)
         setCurrentStatus(data.status)
         setSlaRemaining(data.slaSecondsRemaining)
+        setEditTitle(data.title || '')
+        setEditPriority(data.priority || 'Medium')
+        setEditStatus(data.status || 'Open')
+        setEditService(data.service || '')
+        setEditEnv(data.env || 'Production')
+        setEditAssigneeName(data.assignee?.name || '')
+        setEditDescription((data as any).description || '')
       }
     }
     fetchFromDb()
@@ -162,6 +182,47 @@ export default function IncidentDetailPage({
     setShowEditModal(true)
   }
 
+  // Handle image pasting directly from clipboard (Ctrl+V)
+  const handleDescriptionPaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = e.clipboardData?.items
+    if (!items) return
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i]
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile()
+        if (file) {
+          e.preventDefault()
+          const now = new Date()
+          const pad = (n: number) => String(n).padStart(2, '0')
+          const timestamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`
+          const ext = file.type.split('/')[1] || 'png'
+          const renamedFile = new File([file], `captura_${timestamp}.${ext}`, { type: file.type })
+
+          showToast('Subiendo captura pegada...')
+          try {
+            const formData = new FormData()
+            formData.append('file', renamedFile)
+            formData.append('incidentId', incident.id)
+            formData.append('uploadedBy', 'Operador en Línea')
+
+            const res = await fetch('/api/attachments', {
+              method: 'POST',
+              body: formData,
+            })
+            if (res.ok) {
+              const uploadedAtt = await res.json()
+              handleAttachmentUploaded(uploadedAtt)
+              showToast(`¡Captura ${renamedFile.name} subida y adjuntada!`)
+            }
+          } catch (err: any) {
+            showToast(`Error al subir imagen: ${err.message}`)
+          }
+        }
+      }
+    }
+  }
+
   const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!editTitle.trim()) {
@@ -185,15 +246,16 @@ export default function IncidentDetailPage({
         id: incident.id,
         title: editTitle.trim(),
         priority: editPriority,
-        status: editStatus,
-        service: editService.trim() || 'Core-Platform',
+        status: currentStatus,
+        service: editService.trim() || 'Soporte General',
         env: editEnv,
-        tag: editService.trim() || 'General',
+        tag: editService.trim() || 'Soporte General',
         assignee: {
           name: editAssigneeName.trim() || 'Sin Asignar',
           initials,
           status: 'online' as const,
         },
+        description: editDescription.trim(),
       }
 
       const res = await fetch(`/api/incidents/${encodeURIComponent(rawId)}`, {
@@ -209,22 +271,10 @@ export default function IncidentDetailPage({
       // Update state locally
       setIncident((prev) => ({
         ...prev,
-        title: editTitle.trim(),
-        priority: editPriority,
-        status: editStatus,
-        service: (editService.trim() || 'Core-Platform') as any,
-        env: editEnv,
-        tag: editService.trim() || 'General',
-        assignee: {
-          name: editAssigneeName.trim() || 'Sin Asignar',
-          initials,
-          status: 'online',
-        },
+        ...payload,
       }))
-      setCurrentStatus(editStatus)
 
-      setShowEditModal(false)
-      showToast('Ticket actualizado exitosamente')
+      showToast('¡Ticket actualizado exitosamente!')
       refreshData()
     } catch (err: any) {
       console.error(err)
@@ -452,40 +502,37 @@ export default function IncidentDetailPage({
         )}
       </AnimatePresence>
 
-      {/* Breadcrumb & Navigation Bar */}
+      {/* Header Bar */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border/80 pb-4">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => router.back()}
-            className="flex items-center gap-1.5 rounded-lg border border-border bg-card/60 px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-secondary/70 transition shadow-sm"
-            title="Return to Incidents list"
+        <div>
+          <Link
+            href="/kanban"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground mb-1.5 transition"
           >
             <ArrowLeft className="size-3.5" />
-            <span>Back</span>
-          </button>
-
-          <nav className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-            <Link
-              href="/incidents"
-              className="hover:text-cyan-600 dark:hover:text-cyan-400 transition"
-            >
-              Incidents
-            </Link>
-            <span className="text-muted-foreground/50">/</span>
-            <span className="font-mono font-bold text-foreground bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30 px-2 py-0.5 rounded-md">
+            <span>Volver al Tablero</span>
+          </Link>
+          <div className="flex items-center gap-3">
+            <span className="font-mono text-lg font-extrabold text-cyan-600 dark:text-cyan-400 bg-cyan-500/10 border border-cyan-500/30 px-2.5 py-0.5 rounded-lg">
               {incident.id}
             </span>
-          </nav>
+            <span className="text-xs text-muted-foreground">
+              Abierto {incident.createdTime}
+            </span>
+          </div>
         </div>
 
-        {/* Right Actions: Status Switcher + Edit + Delete Buttons */}
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Status Switcher Pills with Animated Framer Motion LayoutId */}
+        {/* Status Switcher Pills + Delete button */}
+        <div className="flex items-center gap-2.5">
           <div className="flex items-center gap-1 rounded-xl border border-border bg-card/70 p-1 backdrop-blur-md shadow-sm">
             {(['Open', 'In Progress', 'Blocked', 'Resolved'] as IncidentStatus[]).map((status) => {
               const isActive = currentStatus === status
-
-              // Status color mappings
+              const statusLabels: Record<IncidentStatus, string> = {
+                Open: 'Pendiente',
+                'In Progress': 'En Progreso',
+                Blocked: 'En Revisión',
+                Resolved: 'Cerrado',
+              }
               const statusStyles = {
                 Open: 'text-amber-600 dark:text-amber-400 border-amber-500/30',
                 'In Progress': 'text-cyan-600 dark:text-cyan-300 border-cyan-500/30',
@@ -496,11 +543,12 @@ export default function IncidentDetailPage({
               return (
                 <button
                   key={status}
+                  type="button"
                   onClick={() => {
                     setCurrentStatus(status)
-                    showToast(`Status shifted to ${status}`)
+                    showToast(`Estado cambiado a ${statusLabels[status]}`)
                   }}
-                  className={`relative px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors duration-200 ${
+                  className={`relative px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors duration-200 cursor-pointer ${
                     isActive ? `${statusStyles[status]} font-bold` : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
@@ -523,28 +571,18 @@ export default function IncidentDetailPage({
                           : 'bg-emerald-500'
                       }`}
                     />
-                    {status}
+                    {statusLabels[status]}
                   </span>
                 </button>
               )
             })}
           </div>
 
-          {/* Edit Ticket Button */}
           <button
-            onClick={openEditModal}
-            className="flex items-center gap-1.5 rounded-xl border border-cyan-500/40 bg-cyan-500/10 px-3 py-1.5 text-xs font-bold text-cyan-700 dark:text-cyan-300 hover:bg-cyan-500/20 transition shadow-sm cursor-pointer"
-            title="Editar información del ticket"
-          >
-            <Pencil className="size-3.5" />
-            <span>Editar</span>
-          </button>
-
-          {/* Delete Ticket Button */}
-          <button
+            type="button"
             onClick={() => setShowDeleteModal(true)}
-            className="flex items-center gap-1.5 rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-1.5 text-xs font-bold text-rose-700 dark:text-rose-400 hover:bg-rose-500/20 transition shadow-sm cursor-pointer"
-            title="Borrar este ticket"
+            className="flex items-center gap-1.5 rounded-xl border border-rose-500/40 bg-rose-500/10 px-3.5 py-2 text-xs font-bold text-rose-700 dark:text-rose-400 hover:bg-rose-500/20 transition shadow-sm cursor-pointer"
+            title="Borrar este ticket definitivamente"
           >
             <Trash2 className="size-3.5" />
             <span>Borrar</span>
@@ -552,76 +590,193 @@ export default function IncidentDetailPage({
         </div>
       </div>
 
-      {/* Incident Header Info */}
-      <div className="nexus-glass-card rounded-2xl p-6 relative overflow-hidden">
-        <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6">
-          <div className="space-y-3 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-mono text-sm font-bold text-cyan-600 dark:text-cyan-400">
-                {incident.id}
-              </span>
-              <span
-                className={`font-mono text-[11px] font-semibold px-2.5 py-0.5 rounded-md border ${
-                  incident.priority === 'Critical'
-                    ? 'border-rose-500/40 bg-rose-500/10 text-rose-600 dark:text-rose-400'
-                    : 'border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                }`}
-              >
-                {incident.priority} Priority
-              </span>
-              <span className="font-mono text-[11px] px-2.5 py-0.5 rounded-md border border-border bg-secondary text-muted-foreground">
-                {incident.service}
-              </span>
-              <span className="font-mono text-[11px] px-2.5 py-0.5 rounded-md border border-border/70 bg-muted text-muted-foreground">
-                Env: {incident.env}
-              </span>
-              <span className="font-mono text-[11px] text-muted-foreground">
-                · Opened {incident.createdTime}
-              </span>
-            </div>
+      {/* Main Ticket Form Sheet (Exact layout as /tickets/new) */}
+      <form
+        onSubmit={handleSaveEdit}
+        className="rounded-2xl border border-border/80 bg-card/70 backdrop-blur-xl p-6 sm:p-8 shadow-xl space-y-6"
+      >
+        {/* Title */}
+        <div className="space-y-2">
+          <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+            <FileText className="size-3.5 text-cyan-500" />
+            Título del Ticket / Incidente *
+          </label>
+          <input
+            type="text"
+            required
+            value={editTitle}
+            onChange={(e) => setEditTitle(e.target.value)}
+            placeholder="Ej: Interrupción intermitente en servidor..."
+            className="w-full rounded-xl border border-border bg-background/80 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition font-medium"
+          />
+        </div>
 
-            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-foreground leading-snug">
-              {incident.title}
-            </h1>
+        {/* 2-Column Grid: Section & Assignee */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {/* Section / Department */}
+          <div className="space-y-2">
+            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <Tag className="size-3.5 text-violet-500" />
+              Tipo de Sección / Departamento *
+            </label>
+            <select
+              value={editService}
+              onChange={(e) => setEditService(e.target.value)}
+              className="w-full rounded-xl border border-border bg-background/80 px-3.5 py-2.5 text-sm text-foreground outline-none focus:border-cyan-500 transition font-medium"
+            >
+              {sections.length === 0 ? (
+                <option value={editService || 'Soporte General'}>{editService || 'Soporte General'}</option>
+              ) : (
+                sections.map((sec) => (
+                  <option key={sec.id} value={sec.name}>
+                    {sec.name} {sec.description ? `(${sec.description})` : ''}
+                  </option>
+                ))
+              )}
+              {!sections.some((s) => s.name === editService) && editService && (
+                <option value={editService}>{editService}</option>
+              )}
+            </select>
+          </div>
 
-            <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground pt-1">
-              <div>
-                Assignee: <strong className="text-foreground font-semibold">{incident.assignee.name}</strong>
-              </div>
-              <div>
-                Reporter: <strong className="text-foreground font-semibold">{incident.reporter.name}</strong> ({incident.reporter.organization})
-              </div>
-              <div>
-                Tag: <strong className="text-foreground font-mono">{incident.tag}</strong>
-              </div>
-            </div>
-
-            {/* Detailed Description */}
-            {Boolean((incident as any).description) && (
-              <div className="pt-2">
-                <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground block mb-1">
-                  Descripción del Incidente:
-                </span>
-                <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-line bg-secondary/30 p-3.5 rounded-xl border border-border/60 font-sans">
-                  {(incident as any).description}
-                </p>
-              </div>
-            )}
+          {/* Assignee */}
+          <div className="space-y-2">
+            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <User className="size-3.5 text-cyan-500" />
+              Usuario Asignado
+            </label>
+            <select
+              value={editAssigneeName}
+              onChange={(e) => setEditAssigneeName(e.target.value)}
+              className="w-full rounded-xl border border-border bg-background/80 px-3.5 py-2.5 text-sm text-foreground outline-none focus:border-cyan-500 transition font-medium"
+            >
+              <option value="">-- Sin Asignar (Cola Libre) --</option>
+              {usersList.map((u) => (
+                <option key={u.id} value={u.name}>
+                  {u.name} ({u.role})
+                </option>
+              ))}
+              {!usersList.some((u) => u.name === editAssigneeName) && editAssigneeName && (
+                <option value={editAssigneeName}>{editAssigneeName}</option>
+              )}
+            </select>
           </div>
         </div>
-      </div>
 
-      {/* Universal Ticket Attachments Card */}
-      <div className="nexus-glass-card rounded-2xl p-6 border-cyan-500/20 shadow-lg">
-        <FileAttachmentZone
-          incidentId={incident.id}
-          existingAttachments={incident.attachments || []}
-          onAttachmentUploaded={handleAttachmentUploaded}
-          onAttachmentDeleted={handleAttachmentDeleted}
-          title="Archivos Adjuntos del Ticket"
-          description="Soporta cualquier tipo de archivo (logs, volcados .dmp, imágenes, PDFs, código, comprimidos ZIP/TAR, etc.). Arrastra aquí o haz clic para subir de inmediato."
-        />
-      </div>
+        {/* 2-Column Grid: Priority Pills & Environment */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {/* Priority Pills */}
+          <div className="space-y-2">
+            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <Flame className="size-3.5 text-rose-500" />
+              Nivel de Prioridad *
+            </label>
+            <div className="grid grid-cols-4 gap-2">
+              {[
+                { id: 'Low', label: 'Baja' },
+                { id: 'Medium', label: 'Media' },
+                { id: 'High', label: 'Alta' },
+                { id: 'Critical', label: 'Crítica' },
+              ].map((p) => {
+                const isActive = editPriority === p.id
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setEditPriority(p.id as Priority)}
+                    className={`rounded-xl border py-2 text-xs font-bold transition flex items-center justify-center cursor-pointer ${
+                      isActive
+                        ? 'border-cyan-500 bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 shadow-sm'
+                        : 'border-border bg-background/60 text-muted-foreground hover:text-foreground hover:bg-muted/40'
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Environment */}
+          <div className="space-y-2">
+            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <Sliders className="size-3.5 text-amber-500" />
+              Entorno / Alcance
+            </label>
+            <select
+              value={editEnv}
+              onChange={(e) => setEditEnv(e.target.value as any)}
+              className="w-full rounded-xl border border-border bg-background/80 px-3.5 py-2.5 text-sm text-foreground outline-none focus:border-cyan-500 transition font-medium"
+            >
+              <option value="Production">Producción (Servicio Activo)</option>
+              <option value="Staging">Pruebas / Staging</option>
+              <option value="Edge">Sede Remota / Edge</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Detailed Description */}
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <FileText className="size-3.5 text-cyan-500" />
+              Descripción Detallada del Problema
+            </label>
+            <span className="text-[11px] text-cyan-600 dark:text-cyan-400 flex items-center gap-1 font-semibold bg-cyan-500/10 px-2 py-0.5 rounded-md border border-cyan-500/20">
+              <ImageIcon className="size-3" />
+              Presiona Ctrl+V para pegar capturas de pantalla
+            </span>
+          </div>
+          <textarea
+            rows={5}
+            value={editDescription}
+            onChange={(e) => setEditDescription(e.target.value)}
+            onPaste={handleDescriptionPaste}
+            placeholder="Detalla qué está ocurriendo, pasos para reproducirlo, clientes afectados... (Puedes presionar Ctrl+V aquí para pegar una imagen o captura)"
+            className="w-full rounded-xl border border-border bg-background/80 p-3.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition resize-y font-normal"
+          />
+        </div>
+
+        {/* Universal File Attachments Zone */}
+        <div className="pt-2">
+          <FileAttachmentZone
+            incidentId={incident.id}
+            existingAttachments={incident.attachments || []}
+            onAttachmentUploaded={handleAttachmentUploaded}
+            onAttachmentDeleted={handleAttachmentDeleted}
+            title="Adjuntar Archivos al Ticket"
+            description="Puedes adjuntar archivos de todo tipo: capturas de pantalla, archivos de log, volcados de memoria (.dmp), documentos PDF/Word, archivos ZIP o scripts de código."
+          />
+        </div>
+
+        {/* Footer Buttons */}
+        <div className="flex items-center justify-end gap-3 pt-4 border-t border-border/70">
+          <Link
+            href="/kanban"
+            className="rounded-xl border border-border px-5 py-2.5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/40 transition"
+          >
+            Cancelar / Volver
+          </Link>
+
+          <button
+            type="submit"
+            disabled={isSavingEdit}
+            className="quantum-gradient-btn flex items-center gap-2 rounded-xl px-6 py-2.5 text-xs font-bold text-white shadow-lg transition cursor-pointer disabled:opacity-50"
+          >
+            {isSavingEdit ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                <span>Guardando Cambios...</span>
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="size-4" />
+                <span>Guardar Cambios del Ticket</span>
+              </>
+            )}
+          </button>
+        </div>
+      </form>
 
       {/* Activity Timeline / Comms Feed */}
       <div className="nexus-glass-card rounded-2xl p-6">
