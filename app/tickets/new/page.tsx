@@ -55,40 +55,54 @@ export default function NewTicketPage() {
 
   // Handle image pasting directly from clipboard (Ctrl+V)
   const handleDescriptionPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    const items = e.clipboardData?.items
-    if (!items) return
+    try {
+      const items = e.clipboardData?.items
+      if (!items) return
 
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i]
-      if (item.type.startsWith('image/')) {
-        const file = item.getAsFile()
-        if (file) {
-          e.preventDefault()
-          const now = new Date()
-          const pad = (n: number) => String(n).padStart(2, '0')
-          const timestamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`
-          const ext = file.type.split('/')[1] || 'png'
-          const renamedFile = new File([file], `captura_${timestamp}.${ext}`, { type: file.type })
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i]
+        if (item.type && item.type.startsWith('image/')) {
+          const file = item.getAsFile()
+          if (file) {
+            e.preventDefault()
+            const now = new Date()
+            const pad = (n: number) => String(n).padStart(2, '0')
+            const timestamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`
+            const ext = (file.type ? file.type.split('/')[1] : 'png') || 'png'
+            const filename = `captura_${timestamp}.${ext}`
+            const renamedFile = new File([file], filename, { type: file.type || 'image/png' })
 
-          const newStaged: StagedFile = {
-            id: `pasted-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-            file: renamedFile,
-            previewUrl: URL.createObjectURL(renamedFile),
+            let previewUrl: string | undefined
+            try {
+              previewUrl = URL.createObjectURL(renamedFile)
+            } catch {}
+
+            const newStaged: StagedFile = {
+              id: `pasted-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+              file: renamedFile,
+              name: filename,
+              size: renamedFile.size || 0,
+              type: renamedFile.type || 'image/png',
+              previewUrl,
+            }
+
+            setStagedFiles((prev) => [...prev, newStaged])
+
+            // Insert text marker in textarea
+            const target = e.currentTarget
+            const start = target.selectionStart ?? (description || '').length
+            const end = target.selectionEnd ?? (description || '').length
+            const marker = `\n[📷 Imagen pegada: ${filename}]\n`
+            const updated = (description || '').substring(0, start) + marker + (description || '').substring(end)
+            setDescription(updated)
+
+            success('Imagen Pegada', `Se adjuntó la captura "${filename}" desde el portapapeles.`)
           }
-
-          setStagedFiles((prev) => [...prev, newStaged])
-
-          // Insert text marker in textarea
-          const target = e.currentTarget
-          const start = target.selectionStart
-          const end = target.selectionEnd
-          const marker = `\n[📷 Imagen pegada: captura_${timestamp}.${ext}]\n`
-          const updated = description.substring(0, start) + marker + description.substring(end)
-          setDescription(updated)
-
-          success('Imagen Pegada', `Se adjuntó la captura "${renamedFile.name}" desde el portapapeles.`)
         }
       }
+    } catch (err: any) {
+      console.error('Error pasting image:', err)
+      error('Error al pegar imagen', 'No se pudo procesar la imagen del portapapeles.')
     }
   }
 

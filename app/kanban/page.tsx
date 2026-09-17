@@ -250,21 +250,12 @@ export default function KanbanPage() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => refresh()}
-            className="flex h-9 items-center gap-2 rounded-xl border border-border bg-card px-3 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/50 transition shadow-sm"
+            className="flex h-9 items-center gap-2 rounded-xl border border-border bg-card px-3 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/50 transition shadow-sm cursor-pointer"
             title="Refrescar datos"
           >
             <RefreshCw className={`size-3.5 ${loading ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">Actualizar</span>
           </button>
-
-          {/* Prominent Create Ticket Button */}
-          <Link
-            href="/tickets/new"
-            className="quantum-gradient-btn flex h-9.5 items-center gap-2 rounded-xl px-4 text-xs font-bold text-white shadow-lg transition select-none cursor-pointer"
-          >
-            <Plus className="size-4 stroke-[2.5]" />
-            <span>Crear Ticket</span>
-          </Link>
         </div>
       </div>
 

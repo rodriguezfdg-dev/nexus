@@ -155,12 +155,18 @@ export default function IncidentDetailPage({
     }
   }, [rawId])
 
-  const handleAttachmentUploaded = (att: TicketAttachment) => {
+  const handleAttachmentUploaded = (att: any) => {
+    if (!att) return
+    const list: TicketAttachment[] = Array.isArray(att.attachments) ? att.attachments : [att]
+    const validList = list.filter((a) => a && (a.filename || a.id))
+    if (validList.length === 0) return
+
     setIncident((prev) => ({
       ...prev,
-      attachments: [...(prev.attachments || []), att],
+      attachments: [...(prev.attachments || []), ...validList],
     }))
-    showToast(`Archivo adjunto subido: ${att.filename}`)
+    const names = validList.map((a) => a.filename).filter(Boolean).join(', ')
+    showToast(names ? `Archivo adjunto subido: ${names}` : 'Archivo adjuntado con éxito')
   }
 
   const handleAttachmentDeleted = (id: string) => {
@@ -189,33 +195,57 @@ export default function IncidentDetailPage({
 
     for (let i = 0; i < items.length; i++) {
       const item = items[i]
-      if (item.type.startsWith('image/')) {
+      if (item.type && item.type.startsWith('image/')) {
         const file = item.getAsFile()
         if (file) {
           e.preventDefault()
           const now = new Date()
           const pad = (n: number) => String(n).padStart(2, '0')
           const timestamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`
-          const ext = file.type.split('/')[1] || 'png'
-          const renamedFile = new File([file], `captura_${timestamp}.${ext}`, { type: file.type })
+          const ext = (file.type ? file.type.split('/')[1] : 'png') || 'png'
+          const filename = `captura_${timestamp}.${ext}`
+          const renamedFile = new File([file], filename, { type: file.type || 'image/png' })
+
+          let uName = 'Operador en Línea'
+          try {
+            const uStr = localStorage.getItem('nexus_user')
+            if (uStr) {
+              const u = JSON.parse(uStr)
+              if (u.name) uName = u.name
+            }
+          } catch {}
 
           showToast('Subiendo captura pegada...')
           try {
             const formData = new FormData()
+            formData.append('files', renamedFile)
             formData.append('file', renamedFile)
             formData.append('incidentId', incident.id)
-            formData.append('uploadedBy', 'Operador en Línea')
+            formData.append('uploadedBy', uName)
 
             const res = await fetch('/api/attachments', {
               method: 'POST',
               body: formData,
             })
             if (res.ok) {
-              const uploadedAtt = await res.json()
-              handleAttachmentUploaded(uploadedAtt)
-              showToast(`¡Captura ${renamedFile.name} subida y adjuntada!`)
+              const uploadedData = await res.json()
+              const attList = uploadedData.attachments || [uploadedData]
+              attList.forEach((attItem: TicketAttachment) => handleAttachmentUploaded(attItem))
+
+              // Insert text marker in textarea
+              const target = e.currentTarget
+              const start = target.selectionStart ?? (editDescription || '').length
+              const end = target.selectionEnd ?? (editDescription || '').length
+              const marker = `\n[📷 Captura pegada: ${filename}]\n`
+              const updated = (editDescription || '').substring(0, start) + marker + (editDescription || '').substring(end)
+              setEditDescription(updated)
+
+              showToast(`¡Captura ${filename} subida y adjuntada!`)
+            } else {
+              showToast('Error al subir la captura al servidor.')
             }
           } catch (err: any) {
+            console.error('Error pasting image:', err)
             showToast(`Error al subir imagen: ${err.message}`)
           }
         }

@@ -11,8 +11,11 @@ export async function POST(request: Request) {
     const incidentId = (formData.get('incidentId') as string) || ''
     const uploadedBy = (formData.get('uploadedBy') as string) || 'Operador TI'
 
-    // Get all files from formData
-    const files = formData.getAll('files') as File[]
+    // Get all files from formData (support both 'files' and 'file')
+    let files = formData.getAll('files') as File[]
+    if (!files || files.length === 0) {
+      files = formData.getAll('file') as File[]
+    }
     if (!files || files.length === 0) {
       return NextResponse.json({ error: 'No files provided' }, { status: 400 })
     }

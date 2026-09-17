@@ -52,8 +52,9 @@ interface FileAttachmentZoneProps {
 }
 
 // Helper to determine file category and visual styling
-export function getFileInfo(filename: string, mimeType?: string) {
-  const ext = filename.split('.').pop()?.toLowerCase() || ''
+export function getFileInfo(filename?: string, mimeType?: string) {
+  const safeName = typeof filename === 'string' ? filename : ''
+  const ext = safeName.split('.').pop()?.toLowerCase() || ''
 
   if (['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico'].includes(ext) || mimeType?.startsWith('image/')) {
     return {
@@ -383,37 +384,41 @@ export function FileAttachmentZone({
       {totalAttachments > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
           {/* 1. Existing Attachments (Persisted on Server) */}
-          {existingAttachments.map((att) => {
-            const info = getFileInfo(att.filename, att.fileType)
-            const Icon = info.icon
+          {(Array.isArray(existingAttachments) ? existingAttachments : [])
+            .filter((att) => att && typeof att === 'object' && (att.filename || att.id))
+            .map((att) => {
+              const fileName = att.filename || 'archivo'
+              const fileSize = typeof att.fileSize === 'number' ? att.fileSize : 0
+              const info = getFileInfo(fileName, att.fileType)
+              const Icon = info.icon
 
-            return (
-              <div
-                key={att.id}
-                className="group relative flex items-center justify-between gap-3 rounded-xl border border-border/70 bg-card/70 p-3 shadow-sm hover:border-cyan-500/50 hover:shadow-md transition backdrop-blur-md"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div
-                    className={`size-9 rounded-xl flex items-center justify-center shrink-0 border ${info.bgColor} ${info.borderColor} ${info.color}`}
-                  >
-                    <Icon className="size-4" />
-                  </div>
-                  <div className="min-w-0 space-y-0.5">
-                    <p
-                      className="text-xs font-bold text-foreground truncate group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition"
-                      title={att.filename}
+              return (
+                <div
+                  key={att.id || Math.random()}
+                  className="group relative flex items-center justify-between gap-3 rounded-xl border border-border/70 bg-card/70 p-3 shadow-sm hover:border-cyan-500/50 hover:shadow-md transition backdrop-blur-md"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div
+                      className={`size-9 rounded-xl flex items-center justify-center shrink-0 border ${info.bgColor} ${info.borderColor} ${info.color}`}
                     >
-                      {att.filename}
-                    </p>
-                    <div className="flex items-center gap-2 text-[10px] font-mono text-muted-foreground">
-                      <span>{formatFileSize(att.fileSize)}</span>
-                      <span>·</span>
-                      <span className={`px-1.5 py-0.2 rounded border text-[9px] font-semibold ${info.badgeClass}`}>
-                        {info.badge}
-                      </span>
+                      <Icon className="size-4" />
+                    </div>
+                    <div className="min-w-0 space-y-0.5">
+                      <p
+                        className="text-xs font-bold text-foreground truncate group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition"
+                        title={fileName}
+                      >
+                        {fileName}
+                      </p>
+                      <div className="flex items-center gap-2 text-[10px] font-mono text-muted-foreground">
+                        <span>{formatFileSize(fileSize)}</span>
+                        <span>·</span>
+                        <span className={`px-1.5 py-0.2 rounded border text-[9px] font-semibold ${info.badgeClass}`}>
+                          {info.badge}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
                 {/* Actions */}
                 <div className="flex items-center gap-1 shrink-0">
@@ -464,32 +469,37 @@ export function FileAttachmentZone({
           })}
 
           {/* 2. Staged Files (Pending Submit) */}
-          {stagedFiles.map((staged) => {
-            const info = getFileInfo(staged.name, staged.type)
-            const Icon = info.icon
+          {(Array.isArray(stagedFiles) ? stagedFiles : [])
+            .filter((staged) => staged && typeof staged === 'object')
+            .map((staged) => {
+              const fileName = staged.name || staged.file?.name || 'captura.png'
+              const fileSize = typeof staged.size === 'number' ? staged.size : (staged.file?.size || 0)
+              const fileType = staged.type || staged.file?.type || 'image/png'
+              const info = getFileInfo(fileName, fileType)
+              const Icon = info.icon
 
-            return (
-              <div
-                key={staged.id}
-                className="group relative flex items-center justify-between gap-3 rounded-xl border border-cyan-500/30 bg-cyan-500/5 p-3 shadow-sm transition backdrop-blur-md"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div
-                    className={`size-9 rounded-xl flex items-center justify-center shrink-0 border ${info.bgColor} ${info.borderColor} ${info.color}`}
-                  >
-                    <Icon className="size-4" />
-                  </div>
-                  <div className="min-w-0 space-y-0.5">
-                    <div className="flex items-center gap-1.5">
-                      <p className="text-xs font-bold text-foreground truncate" title={staged.name}>
-                        {staged.name}
-                      </p>
-                      <span className="rounded bg-amber-500/20 text-amber-600 dark:text-amber-400 text-[9px] font-bold px-1 uppercase shrink-0">
-                        Listo
-                      </span>
+              return (
+                <div
+                  key={staged.id || Math.random()}
+                  className="group relative flex items-center justify-between gap-3 rounded-xl border border-cyan-500/30 bg-cyan-500/5 p-3 shadow-sm transition backdrop-blur-md"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div
+                      className={`size-9 rounded-xl flex items-center justify-center shrink-0 border ${info.bgColor} ${info.borderColor} ${info.color}`}
+                    >
+                      <Icon className="size-4" />
                     </div>
-                    <div className="flex items-center gap-2 text-[10px] font-mono text-muted-foreground">
-                      <span>{formatFileSize(staged.size)}</span>
+                    <div className="min-w-0 space-y-0.5">
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-xs font-bold text-foreground truncate" title={fileName}>
+                          {fileName}
+                        </p>
+                        <span className="rounded bg-amber-500/20 text-amber-600 dark:text-amber-400 text-[9px] font-bold px-1 uppercase shrink-0">
+                          Listo
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-[10px] font-mono text-muted-foreground">
+                        <span>{formatFileSize(fileSize)}</span>
                       <span>·</span>
                       <span className={`px-1.5 py-0.2 rounded border text-[9px] font-semibold ${info.badgeClass}`}>
                         {info.badge}
