@@ -26,7 +26,8 @@ import {
   LogIn,
   KeyRound,
   Eye,
-  EyeOff
+  EyeOff,
+  Clock
 } from 'lucide-react'
 import { useToast } from '@/components/nexus/toast-provider'
 
@@ -40,6 +41,7 @@ export default function LoginPage() {
   const [mode, setMode] = useState<AuthMode>('login')
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [pendingNotice, setPendingNotice] = useState<string | null>(null)
   const [resetSent, setResetSent] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
@@ -58,6 +60,10 @@ export default function LoginPage() {
 
   // Reset form state
   const [resetEmail, setResetEmail] = useState('')
+  const [resetStep, setResetStep] = useState<'request' | 'verify'>('request')
+  const [resetCode, setResetCode] = useState('')
+  const [resetNewPassword, setResetNewPassword] = useState('')
+  const [resetConfirmPassword, setResetConfirmPassword] = useState('')
 
   const [mounted, setMounted] = useState(false)
   React.useEffect(() => {
@@ -73,6 +79,7 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setErrorMessage(null)
+    setPendingNotice(null)
     setLoading(true)
 
     try {
@@ -113,6 +120,7 @@ export default function LoginPage() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
     setErrorMessage(null)
+    setPendingNotice(null)
 
     if (regPassword !== regConfirmPassword) {
       setErrorMessage('Las contraseñas no coinciden.')
@@ -133,7 +141,6 @@ export default function LoginPage() {
           action: 'register',
           name: regName.trim(),
           email: regEmail.trim(),
-          role: regRole,
           password: regPassword,
         }),
       })
@@ -146,10 +153,10 @@ export default function LoginPage() {
         return
       }
 
-      success('Cuenta Creada', `Usuario ${data.user.name} registrado en SQLite correctamente.`)
-      // Auto-switch to login with email prefilled
+      success('Cuenta Creada', 'Registro exitoso. Se ha enviado un código de verificación a tu correo.')
+      setPendingNotice('¡Cuenta registrada! Te hemos enviado un correo con tu código de verificación de 6 dígitos. Tu cuenta permanecerá en estado INACTIVO hasta que un Administrador de TI la active manualmente.')
       setLoginEmail(regEmail)
-      setLoginPassword(regPassword)
+      setLoginPassword('')
       setMode('login')
     } catch (err: any) {
       setErrorMessage('Error al registrar usuario en la base de datos.')
@@ -158,10 +165,11 @@ export default function LoginPage() {
     }
   }
 
-  // Handle Password Reset
-  const handleResetPassword = async (e: React.FormEvent) => {
+  // Step 1: Request verification code for password reset
+  const handleRequestResetCode = async (e: React.FormEvent) => {
     e.preventDefault()
     setErrorMessage(null)
+    setPendingNotice(null)
     setLoading(true)
 
     try {
@@ -169,16 +177,75 @@ export default function LoginPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'reset-password',
+          action: 'request-reset',
           email: resetEmail.trim(),
         }),
       })
 
       const data = await res.json()
-      setResetSent(true)
-      success('Solicitud Enviada', data.message || 'Instrucciones enviadas.')
+      if (!res.ok) {
+        setErrorMessage(data.error || 'No se pudo enviar el código.')
+        return
+      }
+
+      setResetStep('verify')
+      success('Código Enviado', data.message || 'Revisa tu correo corporativo con el código de 6 dígitos.')
     } catch (err) {
-      setErrorMessage('No se pudo enviar la solicitud de recuperación.')
+      setErrorMessage('Error al solicitar código de verificación.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Step 2: Confirm password reset with verification code
+  const handleConfirmResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setErrorMessage(null)
+
+    if (resetNewPassword !== resetConfirmPassword) {
+      setErrorMessage('Las nuevas contraseñas no coinciden.')
+      return
+    }
+
+    if (resetNewPassword.length < 6) {
+      setErrorMessage('La contraseña debe tener al menos 6 caracteres.')
+      return
+    }
+
+    if (!resetCode.trim()) {
+      setErrorMessage('Ingresa el código de 6 dígitos recibido por correo.')
+      return
+    }
+
+    setLoading(true)
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'confirm-reset',
+          email: resetEmail.trim(),
+          code: resetCode.trim(),
+          newPassword: resetNewPassword,
+        }),
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        setErrorMessage(data.error || 'Código incorrecto.')
+        return
+      }
+
+      success('Contraseña Actualizada', data.message || 'Ya puedes iniciar sesión con tu nueva contraseña.')
+      setLoginEmail(resetEmail)
+      setLoginPassword(resetNewPassword)
+      setMode('login')
+      setResetStep('request')
+      setResetCode('')
+      setResetNewPassword('')
+      setResetConfirmPassword('')
+    } catch (err) {
+      setErrorMessage('No se pudo restablecer la contraseña.')
     } finally {
       setLoading(false)
     }
@@ -186,9 +253,9 @@ export default function LoginPage() {
 
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-between p-4 sm:p-6 md:p-8 bg-quantum-grid select-none">
-      {/* Top Header */}
+      {/* Top Header - Sin enlace a dashboard para evitar fuga de navegación */}
       <header className="w-full max-w-5xl flex items-center justify-between z-10">
-        <Link href="/dashboard" className="flex items-center gap-3">
+        <div className="flex items-center gap-3 select-none">
           <div className="relative flex size-9 items-center justify-center rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-600 dark:text-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.25)]">
             <Shield className="size-5" />
             <span className="absolute -top-0.5 -right-0.5 flex size-2.5">
@@ -204,7 +271,7 @@ export default function LoginPage() {
               Misión & Operaciones TI
             </div>
           </div>
-        </Link>
+        </div>
 
         {/* Theme Toggle */}
         <button
@@ -476,32 +543,10 @@ export default function LoginPage() {
           {/* TAB 3: RESETEO DE CONTRASEÑA */}
           {mode === 'reset' && (
             <div className="space-y-4">
-              {resetSent ? (
-                <div className="text-center py-4 space-y-3">
-                  <div className="size-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 mx-auto flex items-center justify-center">
-                    <CheckCircle2 className="size-6" />
-                  </div>
-                  <h3 className="text-sm font-bold text-foreground">
-                    Enlace de Restablecimiento Generado
-                  </h3>
+              {resetStep === 'request' ? (
+                <form onSubmit={handleRequestResetCode} className="space-y-4">
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    Hemos procesado la solicitud para <span className="font-mono text-cyan-600 dark:text-cyan-400">{resetEmail}</span>. Si la cuenta existe, se autoriza la reconfiguración de la contraseña.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMode('login')
-                      setResetSent(false)
-                    }}
-                    className="w-full rounded-xl border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 py-2.5 text-xs font-bold transition"
-                  >
-                    Volver a Iniciar Sesión
-                  </button>
-                </div>
-              ) : (
-                <form onSubmit={handleResetPassword} className="space-y-4">
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    Ingresa el correo corporativo vinculado a tu cuenta para restablecer tu clave de acceso:
+                    Ingresa tu correo electrónico registrado. Te enviaremos un <strong>código de verificación de 6 dígitos</strong> para autorizar el cambio de tu contraseña.
                   </p>
 
                   <div>
@@ -529,19 +574,90 @@ export default function LoginPage() {
                         setMode('login')
                         setErrorMessage(null)
                       }}
-                      className="flex-1 rounded-xl border border-border bg-secondary hover:bg-muted py-2.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition"
+                      className="flex-1 rounded-xl border border-border bg-secondary hover:bg-muted py-2.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition cursor-pointer"
                     >
                       Cancelar
                     </button>
                     <button
                       type="submit"
                       disabled={loading}
-                      className="quantum-gradient-btn flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold shadow-md transition disabled:opacity-50"
+                      className="quantum-gradient-btn flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold shadow-md transition disabled:opacity-50 cursor-pointer"
                     >
                       {loading ? (
                         <Loader2 className="size-4 animate-spin" />
                       ) : (
-                        <span>Enviar Enlace</span>
+                        <span>Enviar Código</span>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <form onSubmit={handleConfirmResetPassword} className="space-y-3.5">
+                  <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 p-3 text-xs text-cyan-700 dark:text-cyan-300">
+                    Código enviado a <span className="font-mono font-bold">{resetEmail}</span>. Revisa tu bandeja de entrada o spam.
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-foreground mb-1">
+                      Código de Verificación (6 Dígitos)
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      maxLength={6}
+                      value={resetCode}
+                      onChange={(e) => setResetCode(e.target.value.replace(/\D/g, ''))}
+                      placeholder="123456"
+                      className="w-full rounded-xl border border-cyan-500/50 bg-background py-2.5 px-3 text-center text-lg tracking-[8px] font-mono font-bold text-foreground outline-none focus:border-cyan-500 transition"
+                      autoFocus
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-foreground mb-1">
+                      Nueva Contraseña
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      value={resetNewPassword}
+                      onChange={(e) => setResetNewPassword(e.target.value)}
+                      placeholder="Mínimo 6 caracteres"
+                      className="w-full rounded-xl border border-border bg-secondary/50 py-2.5 px-3 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-cyan-500 focus:bg-background transition font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-foreground mb-1">
+                      Confirmar Nueva Contraseña
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      value={resetConfirmPassword}
+                      onChange={(e) => setResetConfirmPassword(e.target.value)}
+                      placeholder="Repetir nueva contraseña"
+                      className="w-full rounded-xl border border-border bg-secondary/50 py-2.5 px-3 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-cyan-500 focus:bg-background transition font-mono"
+                    />
+                  </div>
+
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setResetStep('request')}
+                      className="flex-1 rounded-xl border border-border bg-secondary hover:bg-muted py-2.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition cursor-pointer"
+                    >
+                      Reenviar / Cambiar Correo
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="quantum-gradient-btn flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold shadow-md transition disabled:opacity-50 cursor-pointer"
+                    >
+                      {loading ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <span>Restablecer Clave</span>
                       )}
                     </button>
                   </div>

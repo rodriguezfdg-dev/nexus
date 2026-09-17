@@ -47,6 +47,20 @@ export function NexusSidebar() {
 
   const activeIncidentCount = incidents.filter((i) => i.status !== 'Resolved').length
 
+  const roleLower = (currentUser?.role || '').toLowerCase()
+  const isTI =
+    roleLower === 'ti' ||
+    roleLower.includes('ti') ||
+    roleLower.includes('admin') ||
+    roleLower.includes('lead') ||
+    roleLower.includes('soporte')
+
+  // Role-based navigation: Standard 'usuario' only sees Tablero and Crear Ticket
+  const visibleNavItems = navItems.filter((item) => {
+    if (isTI) return true
+    return item.id === 'kanban' || item.id === 'new-ticket'
+  })
+
   const getLabel = (id: string, defaultLabel: string) => {
     switch (id) {
       case 'kanban': return 'Tablero'
@@ -127,7 +141,7 @@ export function NexusSidebar() {
 
       {/* Nav List */}
       <nav className="flex-1 overflow-y-auto px-2 py-4 space-y-1.5 scrollbar-thin">
-        {navItems.map((item) => {
+        {visibleNavItems.map((item) => {
           const Icon = item.icon
           const label = getLabel(item.id, item.label)
           const isActive =
@@ -213,26 +227,39 @@ export function NexusSidebar() {
             <div className="flex items-center justify-between flex-1 min-w-0">
               <div className="flex flex-col min-w-0">
                 <div className="truncate font-medium text-xs text-foreground">
-                  {currentUser?.name || 'Administrador'}
+                  {currentUser?.name || 'Usuario'}
                 </div>
-                <div className="truncate font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
-                  {currentUser?.role || 'Soporte TI'}
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className={`inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider ${
+                    isTI
+                      ? 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30'
+                      : 'bg-secondary text-muted-foreground border border-border'
+                  }`}>
+                    {isTI ? 'TI • Total' : 'Usuario'}
+                  </span>
                 </div>
               </div>
 
-              <Link
-                href="/login"
-                onClick={() => {
+              <button
+                onClick={async () => {
+                  try {
+                    await fetch('/api/auth', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ action: 'logout' }),
+                    })
+                  } catch (e) {}
                   try {
                     localStorage.removeItem('nexus_user')
                   } catch (e) {}
+                  window.location.href = '/login'
                 }}
-                className="p-1 rounded-md text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 transition"
-                title="Cerrar sesión / Sign Out"
-                aria-label="Cerrar sesión / Sign Out"
+                className="p-1.5 rounded-md text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 transition cursor-pointer"
+                title="Cerrar sesión / Salir"
+                aria-label="Cerrar sesión"
               >
                 <LogOut className="size-3.5" />
-              </Link>
+              </button>
             </div>
           )}
         </div>

@@ -102,7 +102,8 @@ export async function initDatabase() {
         name TEXT NOT NULL,
         email TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
-        role TEXT NOT NULL DEFAULT 'DevOps Engineer',
+        role TEXT NOT NULL DEFAULT 'usuario',
+        status TEXT NOT NULL DEFAULT 'inactivo',
         created_at TEXT NOT NULL
       );`,
       `CREATE TABLE IF NOT EXISTS sections (
@@ -152,6 +153,22 @@ export async function initDatabase() {
   } catch {
     // Column already exists
   }
+
+  // Safe migration for users table (status and verification code columns)
+  try {
+    await db.execute("ALTER TABLE users ADD COLUMN status TEXT DEFAULT 'activo'")
+  } catch {
+    // Column already exists
+  }
+  try {
+    await db.execute("ALTER TABLE users ADD COLUMN verification_code TEXT")
+  } catch {}
+  try {
+    await db.execute("ALTER TABLE users ADD COLUMN verification_code_expires TEXT")
+  } catch {}
+  try {
+    await db.execute("UPDATE users SET status = 'activo' WHERE status IS NULL OR status = ''")
+  } catch {}
 
   // Seed default sections if empty
   const secRes = await db.execute('SELECT COUNT(*) as count FROM sections')

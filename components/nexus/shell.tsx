@@ -109,11 +109,73 @@ export function NexusShell({ children }: { children: React.ReactNode }) {
     }
   }
 
+  // Client-side authentication and role-based route protection
+  const [authChecked, setAuthChecked] = useState(false)
+
+  useEffect(() => {
+    if (pathname === '/login') {
+      setAuthChecked(true)
+      return
+    }
+
+    try {
+      const userStr = localStorage.getItem('nexus_user')
+      if (!userStr) {
+        router.replace('/login')
+        return
+      }
+      const user = JSON.parse(userStr)
+      if (!user || user.status === 'inactivo' || user.status === 'inactive') {
+        localStorage.removeItem('nexus_user')
+        router.replace('/login')
+        return
+      }
+
+      const roleLower = (user.role || '').toLowerCase()
+      const isTI =
+        roleLower === 'ti' ||
+        roleLower.includes('ti') ||
+        roleLower.includes('admin') ||
+        roleLower.includes('lead') ||
+        roleLower.includes('soporte')
+
+      if (!isTI) {
+        const isAllowed =
+          pathname === '/kanban' ||
+          pathname.startsWith('/tickets') ||
+          pathname.startsWith('/incidents')
+
+        if (!isAllowed) {
+          router.replace('/kanban')
+          return
+        }
+      }
+
+      setAuthChecked(true)
+    } catch {
+      router.replace('/login')
+    }
+  }, [pathname, router])
+
   // Full-screen layout for authentication pages (e.g. /login)
   if (pathname === '/login') {
     return (
       <div className="min-h-screen w-full bg-background text-foreground bg-quantum-grid flex flex-col">
         {children}
+      </div>
+    )
+  }
+
+  // Loading state while checking authentication
+  if (!authChecked) {
+    return (
+      <div className="h-screen w-full flex flex-col items-center justify-center bg-background text-foreground bg-quantum-grid select-none">
+        <div className="relative flex size-14 items-center justify-center rounded-2xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-600 dark:text-cyan-400 mb-4 shadow-[0_0_25px_rgba(6,182,212,0.3)] animate-pulse">
+          <Shield className="size-7" />
+        </div>
+        <div className="font-mono text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+          Verificando Acceso Nexus...
+        </div>
       </div>
     )
   }

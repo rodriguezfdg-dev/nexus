@@ -23,6 +23,7 @@ import {
   Sliders,
   Check,
   Briefcase,
+  Clock,
 } from 'lucide-react'
 import { useNexusData, Section, UserItem, RoleItem } from '@/lib/data-context'
 import { useToast } from '@/components/nexus/toast-provider'
@@ -42,7 +43,8 @@ export default function AdminControlPanel() {
   const [showCreateUserModal, setShowCreateUserModal] = useState(false)
   const [newUserName, setNewUserName] = useState('')
   const [newUserEmail, setNewUserEmail] = useState('')
-  const [newUserRole, setNewUserRole] = useState('')
+  const [newUserRole, setNewUserRole] = useState('ti')
+  const [newUserStatus, setNewUserStatus] = useState<'activo' | 'inactivo'>('activo')
   const [newUserPassword, setNewUserPassword] = useState('')
   const [creatingUser, setCreatingUser] = useState(false)
 
@@ -143,7 +145,8 @@ export default function AdminControlPanel() {
         body: JSON.stringify({
           name: newUserName.trim(),
           email: newUserEmail.trim(),
-          role: newUserRole,
+          role: newUserRole || 'ti',
+          status: newUserStatus || 'activo',
           password: newUserPassword,
         }),
       })
@@ -158,6 +161,7 @@ export default function AdminControlPanel() {
       setNewUserName('')
       setNewUserEmail('')
       setNewUserPassword('')
+      setNewUserStatus('activo')
       setShowCreateUserModal(false)
       fetchUsers()
       refresh()
@@ -165,6 +169,50 @@ export default function AdminControlPanel() {
       error('Error', err.message)
     } finally {
       setCreatingUser(false)
+    }
+  }
+
+  const handleToggleUserStatus = async (id: string, newStatus: 'activo' | 'inactivo') => {
+    try {
+      const res = await fetch('/api/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: newStatus }),
+      })
+      if (res.ok) {
+        success('Estado de Usuario Actualizado', `El usuario ahora está marcado como ${newStatus === 'activo' ? 'Activo' : 'Inactivo'}.`)
+        setUsers((prev) =>
+          prev.map((u) => (u.id === id ? { ...u, status: newStatus } : u))
+        )
+        refresh()
+      } else {
+        const data = await res.json()
+        error('Error', data.error || 'No se pudo cambiar el estado del usuario.')
+      }
+    } catch (err: any) {
+      error('Error', err.message)
+    }
+  }
+
+  const handleUpdateUserRole = async (id: string, newRole: string) => {
+    try {
+      const res = await fetch('/api/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, role: newRole }),
+      })
+      if (res.ok) {
+        success('Rol Actualizado', `Nuevo rol asignado: ${newRole === 'ti' ? 'TI (Acceso Total)' : 'Usuario (Solo Tickets y Tablero)'}.`)
+        setUsers((prev) =>
+          prev.map((u) => (u.id === id ? { ...u, role: newRole } : u))
+        )
+        refresh()
+      } else {
+        const data = await res.json()
+        error('Error', data.error || 'No se pudo actualizar el rol.')
+      }
+    } catch (err: any) {
+      error('Error', err.message)
     }
   }
 
@@ -478,6 +526,7 @@ export default function AdminControlPanel() {
                   <th className="p-3.5">Usuario</th>
                   <th className="p-3.5">Correo Electrónico</th>
                   <th className="p-3.5">Rol en el Sistema</th>
+                  <th className="p-3.5">Estado</th>
                   <th className="p-3.5">Fecha Registro</th>
                   <th className="p-3.5 text-right">Acciones</th>
                 </tr>
@@ -485,14 +534,14 @@ export default function AdminControlPanel() {
               <tbody className="divide-y divide-border/60 font-medium">
                 {loadingUsers ? (
                   <tr>
-                    <td colSpan={5} className="p-8 text-center text-muted-foreground">
+                    <td colSpan={6} className="p-8 text-center text-muted-foreground">
                       <Loader2 className="size-5 animate-spin mx-auto mb-2 text-cyan-500" />
                       Cargando lista de usuarios...
                     </td>
                   </tr>
                 ) : filteredUsers.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="p-8 text-center text-muted-foreground">
+                    <td colSpan={6} className="p-8 text-center text-muted-foreground">
                       No se encontraron usuarios registrados.
                     </td>
                   </tr>
@@ -505,31 +554,87 @@ export default function AdminControlPanel() {
                       .slice(0, 2)
                       .toUpperCase()
 
+                    const roleLower = (user.role || '').toLowerCase()
+                    const isUserTI =
+                      roleLower === 'ti' ||
+                      roleLower.includes('ti') ||
+                      roleLower.includes('admin') ||
+                      roleLower.includes('lead') ||
+                      roleLower.includes('soporte')
+                    const normalizedRole = isUserTI ? 'ti' : 'usuario'
+                    const isInactive = user.status === 'inactivo' || user.status === 'inactive'
+
                     return (
                       <tr key={user.id} className="hover:bg-muted/30 transition">
                         <td className="p-3.5 flex items-center gap-2.5">
                           <div className="size-7 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center font-mono text-xs font-bold text-cyan-600 dark:text-cyan-400 shrink-0">
                             {initials}
                           </div>
-                          <span className="font-semibold text-foreground">{user.name}</span>
+                          <div>
+                            <span className="font-semibold text-foreground">{user.name}</span>
+                            <div className="font-mono text-[9px] text-muted-foreground">{user.id}</div>
+                          </div>
                         </td>
                         <td className="p-3.5 font-mono text-muted-foreground">{user.email}</td>
                         <td className="p-3.5">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-secondary text-secondary-foreground border border-border">
-                            {user.role}
-                          </span>
+                          <select
+                            value={normalizedRole}
+                            onChange={(e) => handleUpdateUserRole(user.id, e.target.value)}
+                            className={`rounded-lg border px-2.5 py-1 text-xs font-semibold outline-none cursor-pointer transition ${
+                              isUserTI
+                                ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-600 dark:text-cyan-400'
+                                : 'bg-secondary border-border text-foreground'
+                            }`}
+                          >
+                            <option value="ti">TI (Acceso Total a Módulos)</option>
+                            <option value="usuario">Usuario (Solo Tickets y Tablero)</option>
+                          </select>
+                        </td>
+                        <td className="p-3.5">
+                          {isInactive ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30 animate-pulse">
+                              <Clock className="size-3 shrink-0" />
+                              <span>Inactivo (Pendiente)</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                              <span className="size-1.5 rounded-full bg-emerald-500" />
+                              <span>Activo</span>
+                            </span>
+                          )}
                         </td>
                         <td className="p-3.5 text-muted-foreground font-mono text-[11px]">
                           {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
                         </td>
                         <td className="p-3.5 text-right">
-                          <button
-                            onClick={() => handleDeleteUser(user.id, user.name)}
-                            className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 transition"
-                            title="Eliminar usuario"
-                          >
-                            <Trash2 className="size-4" />
-                          </button>
+                          <div className="flex items-center justify-end gap-1.5">
+                            {isInactive ? (
+                              <button
+                                onClick={() => handleToggleUserStatus(user.id, 'activo')}
+                                className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-sm flex items-center gap-1 transition cursor-pointer"
+                                title="Aprobar y Activar Usuario"
+                              >
+                                <Check className="size-3 stroke-[3]" />
+                                <span>Activar</span>
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleToggleUserStatus(user.id, 'inactivo')}
+                                className="px-2.5 py-1 rounded-lg border border-border hover:bg-secondary text-muted-foreground hover:text-amber-500 text-xs transition cursor-pointer"
+                                title="Desactivar acceso"
+                              >
+                                Desactivar
+                              </button>
+                            )}
+
+                            <button
+                              onClick={() => handleDeleteUser(user.id, user.name)}
+                              className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 transition cursor-pointer"
+                              title="Eliminar usuario"
+                            >
+                              <Trash2 className="size-4" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     )
@@ -1023,29 +1128,39 @@ export default function AdminControlPanel() {
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-muted-foreground">Rol / Cargo *</label>
-                <select
-                  value={newUserRole}
-                  onChange={(e) => setNewUserRole(e.target.value)}
-                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground outline-none focus:border-cyan-500 font-medium"
-                >
-                  {roles.length === 0 ? (
-                    <>
-                      <option value="Soporte TI">Soporte TI (Nivel 1)</option>
-                      <option value="DevOps Lead">DevOps Lead / Infraestructura</option>
-                      <option value="Operador NOC">Operador NOC / Monitoreo</option>
-                      <option value="Administrador">Administrador del Sistema</option>
-                      <option value="Seguridad TI">Especialista en Seguridad</option>
-                    </>
-                  ) : (
-                    roles.map((r) => (
-                      <option key={r.id} value={r.name}>
-                        {r.name} {r.department ? `· ${r.department}` : ''}
-                      </option>
-                    ))
-                  )}
-                </select>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-muted-foreground">Rol / Permisos *</label>
+                  <select
+                    value={newUserRole}
+                    onChange={(e) => setNewUserRole(e.target.value)}
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground outline-none focus:border-cyan-500 font-medium"
+                  >
+                    <option value="ti">TI (Acceso Total a Módulos)</option>
+                    <option value="usuario">Usuario (Solo Tickets y Tablero)</option>
+                    {roles.length > 0 && (
+                      <optgroup label="Cargos Personalizados">
+                        {roles.map((r) => (
+                          <option key={r.id} value={r.name}>
+                            {r.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-muted-foreground">Estado Inicial *</label>
+                  <select
+                    value={newUserStatus}
+                    onChange={(e) => setNewUserStatus(e.target.value as 'activo' | 'inactivo')}
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground outline-none focus:border-cyan-500 font-medium"
+                  >
+                    <option value="activo">🟢 Activo (Acceso Inmediato)</option>
+                    <option value="inactivo">🟡 Inactivo (Bloqueado)</option>
+                  </select>
+                </div>
               </div>
 
               <div className="space-y-1.5">
