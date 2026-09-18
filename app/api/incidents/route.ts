@@ -34,6 +34,7 @@ export async function GET() {
       assignedToMe: Boolean(row.assigned_to_me),
       tag: row.tag,
       createdTime: row.created_time,
+      description: row.description || '',
       aiCopilot: row.ai_copilot_json ? JSON.parse(row.ai_copilot_json) : null,
       timeline: row.timeline_json ? JSON.parse(row.timeline_json) : [],
       attachments: row.attachments_json ? JSON.parse(row.attachments_json) : [],
@@ -69,6 +70,7 @@ export async function POST(request: Request) {
     const assignedToMe = body.assignedToMe ? 1 : 0
     const tag = body.tag || 'General'
     const createdTime = body.createdTime || 'Just now'
+    const description = body.description || ''
     
     const defaultCopilot = {
       summary: `Automated diagnostic pipeline engaged for incident ${id}.`,
@@ -109,14 +111,16 @@ export async function POST(request: Request) {
         reporter_name, reporter_email, reporter_org,
         sla_seconds_total, sla_seconds_remaining,
         ai_triaged, assigned_to_me, tag, created_time,
+        description,
         ai_copilot_json, timeline_json, attachments_json
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         id, title, priority, status, service, env,
         assigneeName, assigneeInitials, assigneeStatus,
         reporterName, reporterEmail, reporterOrg,
         slaSecondsTotal, slaSecondsRemaining,
         aiTriaged, assignedToMe, tag, createdTime,
+        description,
         aiCopilotJson, timelineJson, attachmentsJson,
       ],
     })
@@ -190,7 +194,7 @@ export async function PUT(request: Request) {
   try {
     await initDatabase()
     const body = await request.json()
-    const { id, title, status, priority, service, env, tag, assignedToMe, assignee, updatedBy, updatedByEmail } = body
+    const { id, title, status, priority, service, env, tag, assignedToMe, assignee, description, updatedBy, updatedByEmail } = body
 
     if (!id) {
       return NextResponse.json({ error: 'Missing incident id' }, { status: 400 })
@@ -236,6 +240,10 @@ export async function PUT(request: Request) {
     if (assignedToMe !== undefined) {
       updates.push('assigned_to_me = ?')
       args.push(assignedToMe ? 1 : 0)
+    }
+    if (description !== undefined) {
+      updates.push('description = ?')
+      args.push(description)
     }
     if (assignee?.name) {
       updates.push('assignee_name = ?, assignee_initials = ?, assignee_status = ?')

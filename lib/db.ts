@@ -45,6 +45,7 @@ export async function initDatabase() {
         assigned_to_me INTEGER NOT NULL DEFAULT 0,
         tag TEXT NOT NULL DEFAULT 'General',
         created_time TEXT NOT NULL,
+        description TEXT DEFAULT '',
         ai_copilot_json TEXT,
         timeline_json TEXT,
         attachments_json TEXT
@@ -165,6 +166,11 @@ export async function initDatabase() {
   // Safe migration for existing incidents table
   try {
     await db.execute('ALTER TABLE incidents ADD COLUMN attachments_json TEXT')
+  } catch {
+    // Column already exists
+  }
+  try {
+    await db.execute("ALTER TABLE incidents ADD COLUMN description TEXT DEFAULT ''")
   } catch {
     // Column already exists
   }

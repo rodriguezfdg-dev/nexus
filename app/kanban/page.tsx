@@ -27,6 +27,7 @@ import {
   Check,
   X,
   Loader2,
+  FileText,
 } from 'lucide-react'
 import { useNexusData, Incident, IncidentStatus, Priority } from '@/lib/data-context'
 import { useToast } from '@/components/nexus/toast-provider'
@@ -92,6 +93,7 @@ export default function KanbanPage() {
   const [editStatus, setEditStatus] = useState<IncidentStatus>('Open')
   const [editService, setEditService] = useState('')
   const [editAssignee, setEditAssignee] = useState('')
+  const [editDescription, setEditDescription] = useState('')
   const [isSavingEdit, setIsSavingEdit] = useState(false)
 
   const handleStartEdit = (ticket: Incident) => {
@@ -100,6 +102,7 @@ export default function KanbanPage() {
     setEditStatus(ticket.status)
     setEditService(ticket.service)
     setEditAssignee(ticket.assignee.name)
+    setEditDescription(ticket.description || '')
     setIsEditingInModal(true)
   }
 
@@ -118,6 +121,7 @@ export default function KanbanPage() {
         status: editStatus,
         service: editService,
         tag: editService,
+        description: editDescription.trim(),
         assignee: {
           name: editAssignee || 'Sin Asignar',
           initials,
@@ -134,6 +138,7 @@ export default function KanbanPage() {
               status: editStatus,
               service: editService,
               tag: editService,
+              description: editDescription.trim(),
               assignee: {
                 name: editAssignee || 'Sin Asignar',
                 initials,
@@ -560,6 +565,19 @@ export default function KanbanPage() {
                     </div>
                   </div>
 
+                  <div>
+                    <label className="block text-[11px] font-semibold text-muted-foreground mb-1">
+                      Descripción Detallada
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={editDescription}
+                      onChange={(e) => setEditDescription(e.target.value)}
+                      placeholder="Detalla qué está ocurriendo..."
+                      className="w-full rounded-xl border border-border bg-background p-2.5 text-xs text-foreground dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-cyan-500 resize-y"
+                    />
+                  </div>
+
                   <div className="pt-3 flex items-center justify-end gap-2 border-t border-border">
                     <button
                       type="button"
@@ -610,6 +628,19 @@ export default function KanbanPage() {
                       <p><strong>Fecha de Creación:</strong> {selectedTicketDetail.createdTime}</p>
                     </div>
                   </div>
+
+                  {/* Detailed Description */}
+                  {selectedTicketDetail.description && (
+                    <div className="p-3.5 rounded-xl bg-card border border-border text-xs space-y-1.5 shadow-xs">
+                      <span className="font-bold flex items-center gap-1.5 text-foreground">
+                        <FileText className="size-3.5 text-cyan-500" />
+                        Descripción Detallada
+                      </span>
+                      <p className="text-muted-foreground whitespace-pre-wrap leading-relaxed text-xs">
+                        {selectedTicketDetail.description}
+                      </p>
+                    </div>
+                  )}
 
                   {selectedTicketDetail.aiCopilot?.summary && (
                     <div className="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-xs text-foreground space-y-1">

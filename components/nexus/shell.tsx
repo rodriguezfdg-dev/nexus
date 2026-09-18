@@ -20,6 +20,7 @@ export function NexusShell({ children }: { children: React.ReactNode }) {
   const [ticketService, setTicketService] = useState('Core-API')
   const [ticketEnv, setTicketEnv] = useState<'Production' | 'Staging' | 'Edge'>('Production')
   const [ticketAssignee, setTicketAssignee] = useState('')
+  const [ticketDescription, setTicketDescription] = useState('')
   const [ticketCreatedNotice, setTicketCreatedNotice] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -94,6 +95,7 @@ export function NexusShell({ children }: { children: React.ReactNode }) {
 
       const newId = await createIncident({
         title: ticketTitle.trim(),
+        description: ticketDescription.trim(),
         priority: ticketPriority,
         service: ticketService.trim() || 'Core-Service',
         env: ticketEnv,
@@ -118,6 +120,7 @@ export function NexusShell({ children }: { children: React.ReactNode }) {
       setTicketCreatedNotice(`Incident ${newId} created successfully in SQLite.`)
       setTicketTitle('')
       setTicketAssignee('')
+      setTicketDescription('')
       setTicketModalOpen(false)
       setTimeout(() => setTicketCreatedNotice(null), 5000)
     } catch (err) {
@@ -338,6 +341,19 @@ export function NexusShell({ children }: { children: React.ReactNode }) {
                     onChange={(e) => setTicketAssignee(e.target.value)}
                     placeholder="ej. Juan Pérez"
                     className="w-full rounded-lg border border-border bg-secondary/50 px-2.5 py-2 text-xs text-foreground outline-none focus:border-cyan-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-foreground mb-1">
+                    Descripción del Problema (Opcional)
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={ticketDescription}
+                    onChange={(e) => setTicketDescription(e.target.value)}
+                    placeholder="Detalles sobre el problema..."
+                    className="w-full rounded-lg border border-border bg-secondary/50 px-2.5 py-2 text-xs text-foreground outline-none focus:border-cyan-500 resize-y"
                   />
                 </div>
 

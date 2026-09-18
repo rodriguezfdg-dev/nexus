@@ -9,6 +9,7 @@ export type ServiceTag =
   | 'Edge-CDN' 
   | 'Billing-API'
   | 'DNS-Mesh'
+  | (string & {})
 
 export interface TimelineEvent {
   id: string
@@ -71,6 +72,7 @@ export interface IncidentDetail {
   assignedToMe: boolean
   tag: string
   createdTime: string
+  description?: string
   attachments?: TicketAttachment[]
   
   // AI Copilot Data

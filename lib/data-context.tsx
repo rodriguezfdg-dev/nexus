@@ -44,6 +44,7 @@ export interface Incident {
   assignedToMe: boolean
   tag: string
   createdTime: string
+  description?: string
   attachments?: TicketAttachment[]
   aiCopilot?: {
     summary: string

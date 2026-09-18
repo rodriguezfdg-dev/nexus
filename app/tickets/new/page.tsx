@@ -128,6 +128,7 @@ export default function NewTicketPage() {
 
       const ticketId = await createIncident({
         title: title.trim(),
+        description: description.trim(),
         priority,
         service: sectionName || 'Soporte General',
         env: environment,
@@ -361,7 +362,7 @@ export default function NewTicketPage() {
             onChange={(e) => setDescription(e.target.value)}
             onPaste={handleDescriptionPaste}
             placeholder="Detalla qué está ocurriendo, pasos para reproducirlo, clientes afectados... (Puedes presionar Ctrl+V aquí para pegar una imagen o captura de pantalla)"
-            className="w-full rounded-xl border border-border bg-background/80 p-3.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition resize-y font-normal"
+            className="w-full rounded-xl border border-border bg-background p-3.5 text-sm text-foreground dark:text-zinc-100 placeholder:text-muted-foreground outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition resize-y font-normal shadow-xs"
           />
 
           {/* Pasted Images Strip */}

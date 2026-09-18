@@ -45,6 +45,7 @@ export async function GET(
       assignedToMe: Boolean(row.assigned_to_me),
       tag: row.tag,
       createdTime: row.created_time,
+      description: row.description || '',
       aiCopilot: row.ai_copilot_json ? JSON.parse(row.ai_copilot_json) : null,
       timeline: row.timeline_json ? JSON.parse(row.timeline_json) : [],
       attachments: row.attachments_json ? JSON.parse(row.attachments_json) : [],
@@ -120,7 +121,7 @@ export async function PUT(
     })
     const prevIncident = prevRes.rows.length > 0 ? (prevRes.rows[0] as any) : null
 
-    const { title, status, priority, service, env, tag, assignedToMe, assignee } = body
+    const { title, status, priority, service, env, tag, assignedToMe, assignee, description } = body
 
     const updates: string[] = []
     const args: any[] = []
@@ -152,6 +153,10 @@ export async function PUT(
     if (assignedToMe !== undefined) {
       updates.push('assigned_to_me = ?')
       args.push(assignedToMe ? 1 : 0)
+    }
+    if (description !== undefined) {
+      updates.push('description = ?')
+      args.push(description)
     }
     if (assignee?.name) {
       updates.push('assignee_name = ?, assignee_initials = ?, assignee_status = ?')
