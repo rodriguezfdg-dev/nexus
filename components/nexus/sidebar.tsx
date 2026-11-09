@@ -15,7 +15,8 @@ import {
   Zap,
   User,
   Sparkles,
-  LogOut
+  LogOut,
+  FileSpreadsheet
 } from 'lucide-react'
 import { useLanguage } from '@/lib/i18n/context'
 
@@ -33,6 +34,7 @@ export interface NavItem {
 const navItems: NavItem[] = [
   { id: 'kanban', label: 'Tablero', href: '/kanban', icon: LayoutGrid },
   { id: 'new-ticket', label: 'Crear Ticket', href: '/tickets/new', icon: PlusCircle },
+  { id: 'import-tickets', label: 'Importar CSV', href: '/tickets/import', icon: FileSpreadsheet },
   { id: 'reports', label: 'Reportería & Métricas', href: '/reports', icon: BarChart3 },
   { id: 'audit', label: 'Auditoría & Trazabilidad', href: '/audit-logs', icon: Shield },
   { id: 'admin', label: 'Panel de Control', href: '/admin', icon: Sliders },
@@ -66,6 +68,7 @@ export function NexusSidebar() {
     switch (id) {
       case 'kanban': return 'Tablero'
       case 'new-ticket': return 'Crear Ticket'
+      case 'import-tickets': return 'Importar CSV'
       case 'reports': return 'Reportería'
       case 'audit': return 'Auditoría'
       case 'admin': return 'Panel de Control'
